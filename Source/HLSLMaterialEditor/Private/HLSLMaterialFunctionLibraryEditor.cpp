@@ -259,14 +259,17 @@ void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrar
 		}
 	}
 
-	Library.MaterialFunctions.Remove(nullptr);
+	Library.MaterialFunctions.RemoveAll([&](TSoftObjectPtr<UMaterialFunction> InFunction)
+	{
+		return !InFunction.IsValid();
+	});
 	
 	FMaterialUpdateContext UpdateContext;
 	for (FFunction Function : Functions)
 	{
 		TSoftObjectPtr<UMaterialFunction>* MaterialFunctionPtr = Library.MaterialFunctions.FindByPredicate([&](TSoftObjectPtr<UMaterialFunction> InFunction)
 		{
-			return InFunction->GetFName() == *Function.Name;
+			return ensure(InFunction) && InFunction->GetFName() == *Function.Name;
 		});
 		if (!MaterialFunctionPtr)
 		{
@@ -288,7 +291,7 @@ void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrar
 
 		TMap<FName, FGuid> FunctionInputGuids;
 		TMap<FName, FGuid> FunctionOutputGuids;
-		for (auto* Expression : MaterialFunction->FunctionExpressions)
+		for (UMaterialExpression* Expression : MaterialFunction->FunctionExpressions)
 		{
 			if (UMaterialExpressionFunctionInput* FunctionInput = Cast<UMaterialExpressionFunctionInput>(Expression))
 			{
