@@ -23,7 +23,7 @@ Download the repo as a zip, and extract it under your project Plugins folder so 
 * You can also disable the automatic updates and manually right click the asset -> `Update from HLSL`
 
 ## Syntax
-* All return types must be `void` to ensure the pin are all properly named
+* All return types must be `void` to ensure the pins are all properly named
 * To mark a parameter as an output, use `out`: eg, `out float3 MyOutput`
 * Comments must use the `//` syntax, `/*` is not supported
 * `@param` in comments will be parsed & put into the pin tooltips
