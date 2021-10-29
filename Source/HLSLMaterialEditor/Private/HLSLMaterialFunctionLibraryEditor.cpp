@@ -674,7 +674,13 @@ FString FVoxelMaterialExpressionLibraryEditor::GenerateFunctionCode(const UHLSLM
 
 	if (Library.bAccurateErrors)
 	{
-		Code = FString::Printf(TEXT("#line %d \"%s\"\n%s"), Function.StartLine + 1, *FPaths::GetCleanFilename(Library.GetFilePath()), *Code);
+		Code = FString::Printf(TEXT(
+			"#line %d \"%s\"\n%s\n#line 10000 \"Error occured outside of Custom HLSL node, line number will be inaccurate. "
+			"Untick bAccurateErrors on your HLSL library to fix this (%s)\""),
+			Function.StartLine + 1,
+			*FPaths::GetCleanFilename(Library.GetFilePath()),
+			*Code,
+			*Library.GetPathName());
 	}
 
 	return FString::Printf(TEXT("// START %s\n\n%s\n\n// END %s\n\nreturn 0.f;"), *Function.Name, *Code, *Function.Name);
