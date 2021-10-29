@@ -13,7 +13,9 @@ Demo: https://twitter.com/phyronnaz/status/1452553917204733953
 * Comment support: comments are parsed & pin tooltips are set accordingly
 
 ## Installing from source
-Download the repo as a zip, and extract it under your project Plugins folder so you have `YourProject/Plugins/HLSLMaterial/HLSLMaterial.uplugin`
+Download the repo as a zip or download a [release](https://github.com/Phyronnaz/HLSLMaterial/releases) with prebuilt binaries, and extract it under your project Plugins folder so you have `YourProject/Plugins/HLSLMaterial/HLSLMaterial.uplugin`
+
+Visual Studio will be required if you don't download a prebuilt release.
 
 ## How to
 * Create a new `HLSL Material Function Library` (right click Content Browser -> Material & Textures). This asset will be the link between your hlsl file and all the generated material functions.
