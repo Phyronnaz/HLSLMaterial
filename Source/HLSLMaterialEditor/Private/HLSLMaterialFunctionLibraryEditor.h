@@ -36,6 +36,8 @@ private:
 		FString Name;
 		TArray<FString> Arguments;
 		FString Body;
+
+		FString GetHashedString() const;
 	};
 	static FString GenerateFunction(UHLSLMaterialFunctionLibrary& Library, FFunction Function, FMaterialUpdateContext& UpdateContext);
 	
