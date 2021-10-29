@@ -11,6 +11,8 @@ Demo: https://twitter.com/phyronnaz/status/1452553917204733953
 * Team-friendly: regular material functions are generated, so your team members don't need the plugin to use them!
 * Live updates: material functions & opened material editors are refreshed when saving the hlsl file (Windows only)
 * Comment support: comments are parsed & pin tooltips are set accordingly
+* Smart updates: only modified functions are updated
+* Texture parameters support
 
 ## Installing from source
 Download the repo as a zip or download a [release](https://github.com/Phyronnaz/HLSLMaterial/releases) with prebuilt binaries, and extract it under your project Plugins folder so you have `YourProject/Plugins/HLSLMaterial/HLSLMaterial.uplugin`
@@ -53,6 +55,16 @@ void RaySphereIntersect(float3 RayOrigin, float3 RayDirection, float3 SphereCent
     {
       Distance = (-b - sqrt(Discriminant)) / 2 * a;
     }
+}
+```
+
+### Texture
+For textures, an additional parameter named `YourTextureParameterSampler` of type `SamplerState` will automatically be added by Unreal:
+
+```hlsl
+void Test(Texture2D MyTexture, float2 UVs, out float3 Color)
+{
+	Color = Texture2DSample(MyTexture, MyTextureSampler, UVs).rgb;
 }
 ```
 
