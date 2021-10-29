@@ -470,6 +470,26 @@ FString FVoxelMaterialExpressionLibraryEditor::GenerateFunction(UHLSLMaterialFun
 			FunctionInputType = FunctionInput_Vector4;
 			CustomOutputType = CMOT_Float4;
 		}
+		else if (Type == "Texture2D")
+		{
+			FunctionInputType = FunctionInput_Texture2D;
+		}
+		else if (Type == "TextureCube")
+		{
+			FunctionInputType = FunctionInput_TextureCube;
+		}
+		else if (Type == "Texture2DArray")
+		{
+			FunctionInputType = FunctionInput_Texture2DArray;
+		}
+		else if (Type == "TextureExternal")
+		{
+			FunctionInputType = FunctionInput_TextureExternal;
+		}
+		else if (Type == "Texture3D")
+		{
+			FunctionInputType = FunctionInput_VolumeTexture;
+		}
 		else
 		{
 			return "Invalid argument type: " + Type;
