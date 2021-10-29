@@ -22,13 +22,24 @@ public:
 	//~ End UFactory Interface
 };
 
-struct FVoxelMaterialExpressionLibraryEditor
+class FVoxelMaterialExpressionLibraryEditor
 {
 public:
 	static void Register();
 	static void Generate(UHLSLMaterialFunctionLibrary& Library);
+
+private:
+	struct FFunction
+	{
+		FString Comment;
+		FString ReturnType;
+		FString Name;
+		TArray<FString> Arguments;
+		FString Body;
+	};
+	static FString GenerateFunction(UHLSLMaterialFunctionLibrary& Library, FFunction Function, FMaterialUpdateContext& UpdateContext);
 	
-public:
+private:
 	static IMaterialEditor* FindMaterialEditorForAsset(UObject* InAsset);
 	static UObject* CreateAsset(FString AssetName, FString FolderPath, UClass* Class, FString Suffix = {});
 

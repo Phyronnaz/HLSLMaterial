@@ -86,15 +86,6 @@ void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrar
 		}
 	}
 
-	struct FFunction
-	{
-		FString Comment;
-		FString ReturnType;
-		FString Name;
-		TArray<FString> Arguments;
-		FString Body;
-	};
-
 	TArray<FFunction> Functions;
 	{
 		enum class EScope
@@ -267,311 +258,321 @@ void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrar
 	FMaterialUpdateContext UpdateContext;
 	for (FFunction Function : Functions)
 	{
-		TSoftObjectPtr<UMaterialFunction>* MaterialFunctionPtr = Library.MaterialFunctions.FindByPredicate([&](TSoftObjectPtr<UMaterialFunction> InFunction)
+		const FString Error = GenerateFunction(Library, Function, UpdateContext);
+		if (Error.IsEmpty())
 		{
-			return ensure(InFunction) && InFunction->GetFName() == *Function.Name;
-		});
-		if (!MaterialFunctionPtr)
+			ShowMessage(ESeverity::Info, FString::Printf(TEXT("%s updated"), *Function.Name));
+		}
+		else
 		{
-			MaterialFunctionPtr = &Library.MaterialFunctions.Add_GetRef(nullptr);
+			ShowMessage(ESeverity::Error, FString::Printf(TEXT("Error in %s: Function %s: %s"), *FullPath, *Function.Name, *Error));
+		}
+	}
+}
+
+FString FVoxelMaterialExpressionLibraryEditor::GenerateFunction(UHLSLMaterialFunctionLibrary& Library, FFunction Function, FMaterialUpdateContext& UpdateContext)
+{
+	TSoftObjectPtr<UMaterialFunction>* MaterialFunctionPtr = Library.MaterialFunctions.FindByPredicate([&](TSoftObjectPtr<UMaterialFunction> InFunction)
+	{
+		return ensure(InFunction) && InFunction->GetFName() == *Function.Name;
+	});
+	if (!MaterialFunctionPtr)
+	{
+		MaterialFunctionPtr = &Library.MaterialFunctions.Add_GetRef(nullptr);
+	}
+
+	UMaterialFunction* MaterialFunction = MaterialFunctionPtr->Get();
+	if (!MaterialFunction)
+	{
+		FString BasePath = FPackageName::ObjectPathToPackageName(Library.GetPathName());
+		if (Library.bPutFunctionsInSubdirectory)
+		{
+			BasePath += "_GeneratedFunctions";
+		}
+		else
+		{
+			BasePath = FPaths::GetPath(BasePath);
 		}
 
-		UMaterialFunction* MaterialFunction = MaterialFunctionPtr->Get();
-		if (!MaterialFunction)
-		{
-			FString BasePath = FPackageName::ObjectPathToPackageName(Library.GetPathName());
-			if (Library.bPutFunctionsInSubdirectory)
-			{
-				BasePath += "_GeneratedFunctions";
-			}
-			else
-			{
-				BasePath = FPaths::GetPath(BasePath);
-			}
+		MaterialFunction = CreateAsset<UMaterialFunction>(Function.Name, BasePath);
+	}
+	if (!ensure(MaterialFunction))
+	{
+		return "Failed to create asset";
+	}
+	*MaterialFunctionPtr = MaterialFunction;
 
-			MaterialFunction = CreateAsset<UMaterialFunction>(Function.Name, BasePath);
+	TMap<FName, FGuid> FunctionInputGuids;
+	TMap<FName, FGuid> FunctionOutputGuids;
+	for (UMaterialExpression* Expression : MaterialFunction->FunctionExpressions)
+	{
+		if (UMaterialExpressionFunctionInput* FunctionInput = Cast<UMaterialExpressionFunctionInput>(Expression))
+		{
+			FunctionInputGuids.Add(FunctionInput->InputName, FunctionInput->Id);
 		}
-		if (!ensure(MaterialFunction))
+		if (UMaterialExpressionFunctionOutput* FunctionOutput = Cast<UMaterialExpressionFunctionOutput>(Expression))
 		{
-			continue;
+			FunctionOutputGuids.Add(FunctionOutput->OutputName, FunctionOutput->Id);
 		}
-		*MaterialFunctionPtr = MaterialFunction;
+	}
+	MaterialFunction->FunctionExpressions.Empty();
 
-		TMap<FName, FGuid> FunctionInputGuids;
-		TMap<FName, FGuid> FunctionOutputGuids;
-		for (UMaterialExpression* Expression : MaterialFunction->FunctionExpressions)
+	{
+		FString Description;
+		Description = Function.Comment
+			.Replace(TEXT("// "), TEXT(""))
+			.Replace(TEXT("\t"), TEXT(" "))
+			.Replace(TEXT("@param "), TEXT(""));
+
+		Description.TrimStartAndEndInline();
+		while (Description.Contains(TEXT("  ")))
 		{
-			if (UMaterialExpressionFunctionInput* FunctionInput = Cast<UMaterialExpressionFunctionInput>(Expression))
-			{
-				FunctionInputGuids.Add(FunctionInput->InputName, FunctionInput->Id);
-			}
-			if (UMaterialExpressionFunctionOutput* FunctionOutput = Cast<UMaterialExpressionFunctionOutput>(Expression))
-			{
-				FunctionOutputGuids.Add(FunctionOutput->OutputName, FunctionOutput->Id);
-			}
+			Description.ReplaceInline(TEXT("  "), TEXT(" "));
 		}
-		MaterialFunction->FunctionExpressions.Empty();
-
+		while (Description.Contains(TEXT("\n ")))
 		{
-			FString Description;
-			Description = Function.Comment
-				.Replace(TEXT("// "), TEXT(""))
-				.Replace(TEXT("\t"), TEXT(" "))
-				.Replace(TEXT("@param "), TEXT(""));
+			Description.ReplaceInline(TEXT("\n "), TEXT("\n"));
+		}
 
-			Description.TrimStartAndEndInline();
-			while (Description.Contains(TEXT("  ")))
-			{
-				Description.ReplaceInline(TEXT("  "), TEXT(" "));
-			}
-			while (Description.Contains(TEXT("\n ")))
-			{
-				Description.ReplaceInline(TEXT("\n "), TEXT("\n"));
-			}
+		FString FinalDescription;
+		// Force ConvertToMultilineToolTip(40) to do something nice
+		for (int32 Index = 0; Index < Description.Len(); Index++)
+		{
+			const TCHAR Char = Description[Index];
 
-			FString FinalDescription;
-			// Force ConvertToMultilineToolTip(40) to do something nice
-			for (int32 Index = 0; Index < Description.Len(); Index++)
+			if (Char == TEXT('\n'))
 			{
-				const TCHAR Char = Description[Index];
-
-				if (Char == TEXT('\n'))
+				while (FinalDescription.Len() % 41 != 0)
 				{
-					while (FinalDescription.Len() % 41 != 0)
-					{
-						FinalDescription += TEXT(' ');
-					}
+					FinalDescription += TEXT(' ');
 				}
-
-				FinalDescription += Char;
 			}
 
-			MaterialFunction->Description = FinalDescription;
+			FinalDescription += Char;
 		}
 
-		MaterialFunction->bExposeToLibrary = true;
+		MaterialFunction->Description = FinalDescription;
+	}
 
-		ON_SCOPE_EXIT
-		{
-			MaterialFunction->StateId = FGuid::NewGuid();
-			MaterialFunction->MarkPackageDirty();
-		};
+	MaterialFunction->bExposeToLibrary = true;
 
-		struct FPin
-		{
-			FName Name;
-			FString ToolTip;
-			EFunctionInputType FunctionType;
-			ECustomMaterialOutputType CustomOutputType;
-		};
-		TArray<FPin> Inputs;
-		TArray<FPin> Outputs;
+	ON_SCOPE_EXIT
+	{
+		MaterialFunction->StateId = FGuid::NewGuid();
+		MaterialFunction->MarkPackageDirty();
+	};
 
-		if (Function.ReturnType != "void")
+	struct FPin
+	{
+		FName Name;
+		FString ToolTip;
+		EFunctionInputType FunctionType;
+		ECustomMaterialOutputType CustomOutputType;
+	};
+	TArray<FPin> Inputs;
+	TArray<FPin> Outputs;
+
+	if (Function.ReturnType != "void")
+	{
+		return "Return type needs to be void";
+	}
+	for (FString Argument : Function.Arguments)
+	{
+		Argument.TrimStartAndEndInline();
+
+		bool bIsOutput = false;
+		if (Argument.StartsWith("out"))
 		{
-			ShowMessage(ESeverity::Error, FString::Printf(TEXT("Parsing error in %s: return type of %s needs to be void"), *FullPath, *Function.Name));
-			return;
-		}
-		for (FString Argument : Function.Arguments)
-		{
+			bIsOutput = true;
+			Argument.RemoveFromStart("out");
 			Argument.TrimStartAndEndInline();
+		}
 
-			bool bIsOutput = false;
-			if (Argument.StartsWith("out"))
+		TArray<FString> TypeAndName;
+		Argument.ParseIntoArray(TypeAndName, TEXT(" "));
+		if (TypeAndName.Num() != 2)
+		{
+			return "Invalid arguments syntax";
+		}
+
+		const FString Type = TypeAndName[0];
+		const FString Name = TypeAndName[1];
+		EFunctionInputType FunctionInputType = {};
+		ECustomMaterialOutputType CustomOutputType = {};
+
+		if (Type == "float")
+		{
+			FunctionInputType = FunctionInput_Scalar;
+			CustomOutputType = CMOT_Float1;
+		}
+		else if (Type == "float2")
+		{
+			FunctionInputType = FunctionInput_Vector2;
+			CustomOutputType = CMOT_Float2;
+		}
+		else if (Type == "float3")
+		{
+			FunctionInputType = FunctionInput_Vector3;
+			CustomOutputType = CMOT_Float3;
+		}
+		else if (Type == "float4")
+		{
+			FunctionInputType = FunctionInput_Vector4;
+			CustomOutputType = CMOT_Float4;
+		}
+		else
+		{
+			return "Invalid argument type: " + Type;
+		}
+
+		FString ToolTip;
+		int32 Index = 0;
+		while (Index < Function.Comment.Len())
+		{
+			Index = Function.Comment.Find(TEXT("@param"), ESearchCase::IgnoreCase, ESearchDir::FromStart, Index);
+			if (Index == -1)
 			{
-				bIsOutput = true;
-				Argument.RemoveFromStart("out");
-				Argument.TrimStartAndEndInline();
-			}
-
-			TArray<FString> TypeAndName;
-			Argument.ParseIntoArray(TypeAndName, TEXT(" "));
-			if (TypeAndName.Num() != 2)
-			{
-				ShowMessage(ESeverity::Error, FString::Printf(TEXT("Parsing error in %s: invalid arguments for %s"), *FullPath, *Function.Name));
-				return;
-			}
-
-			const FString Type = TypeAndName[0];
-			const FString Name = TypeAndName[1];
-			EFunctionInputType FunctionInputType;
-			ECustomMaterialOutputType CustomOutputType;
-
-			if (Type == "float")
-			{
-				FunctionInputType = FunctionInput_Scalar;
-				CustomOutputType = CMOT_Float1;
-			}
-			else if (Type == "float2")
-			{
-				FunctionInputType = FunctionInput_Vector2;
-				CustomOutputType = CMOT_Float2;
-			}
-			else if (Type == "float3")
-			{
-				FunctionInputType = FunctionInput_Vector3;
-				CustomOutputType = CMOT_Float3;
-			}
-			else if (Type == "float4")
-			{
-				FunctionInputType = FunctionInput_Vector4;
-				CustomOutputType = CMOT_Float4;
-			}
-			else
-			{
-				ShowMessage(ESeverity::Error, FString::Printf(TEXT("Parsing error in %s: invalid argument type for %s: %s"), *FullPath, *Function.Name, *Type));
-				return;
-			}
-
-			FString ToolTip;
-			int32 Index = 0;
-			while (Index < Function.Comment.Len())
-			{
-				Index = Function.Comment.Find(TEXT("@param"), ESearchCase::IgnoreCase, ESearchDir::FromStart, Index);
-				if (Index == -1)
-				{
-					break;
-				}
-
-				Index += FString(TEXT("@param")).Len();
-
-				while (Index < Function.Comment.Len() && FChar::IsWhitespace(Function.Comment[Index]))
-				{
-					Index++;
-				}
-
-				FString ParamName;
-				while (Index < Function.Comment.Len() && !FChar::IsWhitespace(Function.Comment[Index]))
-				{
-					ParamName += Function.Comment[Index++];
-				}
-
-				if (ParamName != Name)
-				{
-					continue;
-				}
-
-				while (Index < Function.Comment.Len() && FChar::IsWhitespace(Function.Comment[Index]))
-				{
-					Index++;
-				}
-
-				while (Index < Function.Comment.Len() && !FChar::IsLinebreak(Function.Comment[Index]))
-				{
-					ToolTip += Function.Comment[Index++];
-				}
-				ToolTip.TrimStartAndEndInline();
-
 				break;
 			}
 
-			(bIsOutput ? Outputs : Inputs).Add({ *Name, ToolTip, FunctionInputType, CustomOutputType });
-		}
+			Index += FString(TEXT("@param")).Len();
 
-		TArray<UMaterialExpressionFunctionInput*> FunctionInputs;
-		for (int32 Index = 0; Index < Inputs.Num(); Index++)
-		{
-			FPin& Input = Inputs[Index];
-
-			UMaterialExpressionFunctionInput* Expression = NewObject<UMaterialExpressionFunctionInput>(MaterialFunction);
-			Expression->MaterialExpressionGuid = FGuid::NewGuid();
-			Expression->Id = FunctionInputGuids.FindRef(Input.Name);
-			if (!Expression->Id.IsValid())
+			while (Index < Function.Comment.Len() && FChar::IsWhitespace(Function.Comment[Index]))
 			{
-				Expression->Id = FGuid::NewGuid();
+				Index++;
 			}
-			Expression->SortPriority = Index;
-			Expression->InputName = Input.Name;
-			Expression->InputType = Input.FunctionType;
-			Expression->Description = Input.ToolTip;
-			Expression->MaterialExpressionEditorX = 0;
-			Expression->MaterialExpressionEditorY = 200 * Index;
 
-			FunctionInputs.Add(Expression);
-			MaterialFunction->FunctionExpressions.Add(Expression);
-		}
-
-		TArray<UMaterialExpressionFunctionOutput*> FunctionOutputs;
-		for (int32 Index = 0; Index < Outputs.Num(); Index++)
-		{
-			FPin& Output = Outputs[Index];
-
-			UMaterialExpressionFunctionOutput* Expression = NewObject<UMaterialExpressionFunctionOutput>(MaterialFunction);
-			Expression->MaterialExpressionGuid = FGuid::NewGuid();
-			Expression->Id = FunctionOutputGuids.FindRef(Output.Name);
-			if (!Expression->Id.IsValid())
+			FString ParamName;
+			while (Index < Function.Comment.Len() && !FChar::IsWhitespace(Function.Comment[Index]))
 			{
-				Expression->Id = FGuid::NewGuid();
+				ParamName += Function.Comment[Index++];
 			}
-			Expression->SortPriority = Index;
-			Expression->OutputName = Output.Name;
-			Expression->Description = Output.ToolTip;
-			Expression->MaterialExpressionEditorX = 1000;
-			Expression->MaterialExpressionEditorY = 200 * Index;
 
-			FunctionOutputs.Add(Expression);
-			MaterialFunction->FunctionExpressions.Add(Expression);
-		}
-
-		UMaterialExpressionCustom* MaterialExpressionCustom = NewObject<UMaterialExpressionCustom>(MaterialFunction);
-		MaterialExpressionCustom->MaterialExpressionGuid = FGuid::NewGuid();
-		MaterialExpressionCustom->OutputType = CMOT_Float1;
-		MaterialExpressionCustom->Code = Function.Body.Replace(TEXT("return"), TEXT("return 0.f"));
-		MaterialExpressionCustom->Code = FString::Printf(TEXT("// START %s\n\n%s\n\n// END %s\n\nreturn 0.f;"), *Function.Name, *MaterialExpressionCustom->Code, *Function.Name);
-		MaterialExpressionCustom->MaterialExpressionEditorX = 500;
-		MaterialExpressionCustom->MaterialExpressionEditorY = 0;
-		MaterialFunction->FunctionExpressions.Add(MaterialExpressionCustom);
-
-		MaterialExpressionCustom->Inputs.Reset();
-		for (int32 Index = 0; Index < Inputs.Num(); Index++)
-		{
-			FCustomInput& Input = MaterialExpressionCustom->Inputs.Add_GetRef({ Inputs[Index].Name });
-			Input.Input.Connect(0, FunctionInputs[Index]);
-		}
-		for (int32 Index = 0; Index < Outputs.Num(); Index++)
-		{
-			MaterialExpressionCustom->AdditionalOutputs.Add({ Outputs[Index].Name, Outputs[Index].CustomOutputType });
-		}
-
-		MaterialExpressionCustom->PostEditChange();
-		for (int32 Index = 0; Index < Outputs.Num(); Index++)
-		{
-			// + 1 as default output pin is result
-			FunctionOutputs[Index]->GetInput(0)->Connect(Index + 1, MaterialExpressionCustom);
-		}
-
-		// Update open material editors
-		for (TObjectIterator<UMaterial> It; It; ++It)
-		{
-			UMaterial* CurrentMaterial = *It;
-			if (!CurrentMaterial->bIsPreviewMaterial)
+			if (ParamName != Name)
 			{
 				continue;
 			}
 
-			IMaterialEditor* MaterialEditor = FindMaterialEditorForAsset(CurrentMaterial);
-			if (!MaterialEditor)
+			while (Index < Function.Comment.Len() && FChar::IsWhitespace(Function.Comment[Index]))
 			{
-				continue;
+				Index++;
 			}
 
-			UpdateContext.AddMaterial(CurrentMaterial);
-
-			// Propagate the function change to this material
-			CurrentMaterial->PreEditChange(nullptr);
-			CurrentMaterial->PostEditChange();
-			CurrentMaterial->MarkPackageDirty();
-
-			if (CurrentMaterial->MaterialGraph)
+			while (Index < Function.Comment.Len() && !FChar::IsLinebreak(Function.Comment[Index]))
 			{
-				CurrentMaterial->MaterialGraph->RebuildGraph();
+				ToolTip += Function.Comment[Index++];
 			}
+			ToolTip.TrimStartAndEndInline();
 
-			MaterialEditor->NotifyExternalMaterialChange();
+			break;
 		}
 
-		ShowMessage(ESeverity::Info, FString::Printf(TEXT("%s updated"), *MaterialFunction->GetName()));
+		(bIsOutput ? Outputs : Inputs).Add({ *Name, ToolTip, FunctionInputType, CustomOutputType });
 	}
+
+	TArray<UMaterialExpressionFunctionInput*> FunctionInputs;
+	for (int32 Index = 0; Index < Inputs.Num(); Index++)
+	{
+		FPin& Input = Inputs[Index];
+
+		UMaterialExpressionFunctionInput* Expression = NewObject<UMaterialExpressionFunctionInput>(MaterialFunction);
+		Expression->MaterialExpressionGuid = FGuid::NewGuid();
+		Expression->Id = FunctionInputGuids.FindRef(Input.Name);
+		if (!Expression->Id.IsValid())
+		{
+			Expression->Id = FGuid::NewGuid();
+		}
+		Expression->SortPriority = Index;
+		Expression->InputName = Input.Name;
+		Expression->InputType = Input.FunctionType;
+		Expression->Description = Input.ToolTip;
+		Expression->MaterialExpressionEditorX = 0;
+		Expression->MaterialExpressionEditorY = 200 * Index;
+
+		FunctionInputs.Add(Expression);
+		MaterialFunction->FunctionExpressions.Add(Expression);
+	}
+
+	TArray<UMaterialExpressionFunctionOutput*> FunctionOutputs;
+	for (int32 Index = 0; Index < Outputs.Num(); Index++)
+	{
+		FPin& Output = Outputs[Index];
+
+		UMaterialExpressionFunctionOutput* Expression = NewObject<UMaterialExpressionFunctionOutput>(MaterialFunction);
+		Expression->MaterialExpressionGuid = FGuid::NewGuid();
+		Expression->Id = FunctionOutputGuids.FindRef(Output.Name);
+		if (!Expression->Id.IsValid())
+		{
+			Expression->Id = FGuid::NewGuid();
+		}
+		Expression->SortPriority = Index;
+		Expression->OutputName = Output.Name;
+		Expression->Description = Output.ToolTip;
+		Expression->MaterialExpressionEditorX = 1000;
+		Expression->MaterialExpressionEditorY = 200 * Index;
+
+		FunctionOutputs.Add(Expression);
+		MaterialFunction->FunctionExpressions.Add(Expression);
+	}
+
+	UMaterialExpressionCustom* MaterialExpressionCustom = NewObject<UMaterialExpressionCustom>(MaterialFunction);
+	MaterialExpressionCustom->MaterialExpressionGuid = FGuid::NewGuid();
+	MaterialExpressionCustom->OutputType = CMOT_Float1;
+	MaterialExpressionCustom->Code = Function.Body.Replace(TEXT("return"), TEXT("return 0.f"));
+	MaterialExpressionCustom->Code = FString::Printf(TEXT("// START %s\n\n%s\n\n// END %s\n\nreturn 0.f;"), *Function.Name, *MaterialExpressionCustom->Code, *Function.Name);
+	MaterialExpressionCustom->MaterialExpressionEditorX = 500;
+	MaterialExpressionCustom->MaterialExpressionEditorY = 0;
+	MaterialFunction->FunctionExpressions.Add(MaterialExpressionCustom);
+
+	MaterialExpressionCustom->Inputs.Reset();
+	for (int32 Index = 0; Index < Inputs.Num(); Index++)
+	{
+		FCustomInput& Input = MaterialExpressionCustom->Inputs.Add_GetRef({ Inputs[Index].Name });
+		Input.Input.Connect(0, FunctionInputs[Index]);
+	}
+	for (int32 Index = 0; Index < Outputs.Num(); Index++)
+	{
+		MaterialExpressionCustom->AdditionalOutputs.Add({ Outputs[Index].Name, Outputs[Index].CustomOutputType });
+	}
+
+	MaterialExpressionCustom->PostEditChange();
+	for (int32 Index = 0; Index < Outputs.Num(); Index++)
+	{
+		// + 1 as default output pin is result
+		FunctionOutputs[Index]->GetInput(0)->Connect(Index + 1, MaterialExpressionCustom);
+	}
+
+	// Update open material editors
+	for (TObjectIterator<UMaterial> It; It; ++It)
+	{
+		UMaterial* CurrentMaterial = *It;
+		if (!CurrentMaterial->bIsPreviewMaterial)
+		{
+			continue;
+		}
+
+		IMaterialEditor* MaterialEditor = FindMaterialEditorForAsset(CurrentMaterial);
+		if (!MaterialEditor)
+		{
+			continue;
+		}
+
+		UpdateContext.AddMaterial(CurrentMaterial);
+
+		// Propagate the function change to this material
+		CurrentMaterial->PreEditChange(nullptr);
+		CurrentMaterial->PostEditChange();
+		CurrentMaterial->MarkPackageDirty();
+
+		if (CurrentMaterial->MaterialGraph)
+		{
+			CurrentMaterial->MaterialGraph->RebuildGraph();
+		}
+
+		MaterialEditor->NotifyExternalMaterialChange();
+	}
+
+	return {};
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -627,17 +628,21 @@ UObject* FVoxelMaterialExpressionLibraryEditor::CreateAsset(FString AssetName, F
 void FVoxelMaterialExpressionLibraryEditor::ShowMessage(ESeverity Severity, FString Message)
 {
 	FNotificationInfo Info(FText::FromString(Message));
-	Info.CheckBoxState = Severity == ESeverity::Info ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-	Info.ExpireDuration = 1.f;
-	FSlateNotificationManager::Get().AddNotification(Info);
-
 	if (Severity == ESeverity::Info)
 	{
+		Info.ExpireDuration = 1.f;
+		Info.CheckBoxState = ECheckBoxState::Checked;
+
 		UE_LOG(LogHLSLMaterial, Log, TEXT("%s"), *Message);
 	}
 	else
 	{
 		check(Severity == ESeverity::Error);
+
+		Info.ExpireDuration = 10.f;
+		Info.CheckBoxState = ECheckBoxState::Unchecked;
+
 		UE_LOG(LogHLSLMaterial, Error, TEXT("%s"), *Message);
 	}
+	FSlateNotificationManager::Get().AddNotification(Info);
 }
