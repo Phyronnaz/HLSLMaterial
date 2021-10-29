@@ -28,7 +28,7 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Config")
 	bool bPutFunctionsInSubdirectory = true;
 
-	UPROPERTY(VisibleAnywhere, Category = "Generated")
+	UPROPERTY(EditAnywhere, Category = "Generated")
 	TArray<TSoftObjectPtr<UMaterialFunction>> MaterialFunctions;
 #endif
 

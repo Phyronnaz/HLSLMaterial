@@ -274,7 +274,7 @@ FString FVoxelMaterialExpressionLibraryEditor::GenerateFunction(UHLSLMaterialFun
 {
 	TSoftObjectPtr<UMaterialFunction>* MaterialFunctionPtr = Library.MaterialFunctions.FindByPredicate([&](TSoftObjectPtr<UMaterialFunction> InFunction)
 	{
-		return ensure(InFunction) && InFunction->GetFName() == *Function.Name;
+		return InFunction && InFunction->GetFName() == *Function.Name;
 	});
 	if (!MaterialFunctionPtr)
 	{
@@ -296,7 +296,7 @@ FString FVoxelMaterialExpressionLibraryEditor::GenerateFunction(UHLSLMaterialFun
 
 		MaterialFunction = CreateAsset<UMaterialFunction>(Function.Name, BasePath);
 	}
-	if (!ensure(MaterialFunction))
+	if (!MaterialFunction)
 	{
 		return "Failed to create asset";
 	}
@@ -597,10 +597,23 @@ IMaterialEditor* FVoxelMaterialExpressionLibraryEditor::FindMaterialEditorForAss
 
 UObject* FVoxelMaterialExpressionLibraryEditor::CreateAsset(FString AssetName, FString FolderPath, UClass* Class, FString Suffix)
 {
-	FString PackageName = FolderPath / AssetName;
+	const FString PackageName = FolderPath / AssetName;
 
-	FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
-	AssetToolsModule.Get().CreateUniqueAssetName(PackageName, Suffix, PackageName, AssetName);
+	{
+		FString NewPackageName;
+		FString NewAssetName;
+
+		const FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
+		AssetToolsModule.Get().CreateUniqueAssetName(PackageName, Suffix, NewPackageName, NewAssetName);
+
+		if (NewAssetName != AssetName)
+		{
+			ShowMessage(ESeverity::Error, FString::Printf(
+				TEXT("Asset %s already exists! Add it back to the HLSL library MaterialFunctions if you want it to be updated"),
+				*PackageName));
+			return nullptr;
+		}
+	}
 
 #if ENGINE_VERSION < 426
 	UPackage* Package = CreatePackage(nullptr, *PackageName);
