@@ -99,6 +99,9 @@ void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrar
 		int32 Index = 0;
 		int32 ScopeDepth = 0;
 
+		// Simplify line breaks handling
+		Text.ReplaceInline(TEXT("\r\n"), TEXT("\n"));
+
 		while (Index < Text.Len())
 		{
 			const TCHAR Char = Text[Index++];
@@ -107,6 +110,16 @@ void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrar
 			{
 			case EScope::Global:
 			{
+				if (FChar::IsLinebreak(Char))
+				{
+					// Clear any pending comment when there's an empty line with no //
+					if (Functions.Num() > 0 && 
+						Functions.Last().ReturnType.IsEmpty())
+					{
+						Functions.Pop();
+					}
+					continue;
+				}
 				if (FChar::IsWhitespace(Char))
 				{
 					continue;
@@ -236,6 +249,17 @@ void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrar
 			}
 			break;
 			default: ensure(false);
+			}
+		}
+
+		if (Scope == EScope::FunctionComment)
+		{
+			// Can have a commented out function at the end
+			if (ensure(Functions.Num() > 0) &&
+				ensure(Functions.Last().ReturnType.IsEmpty()))
+			{
+				Functions.Pop();
+				Scope = EScope::Global;
 			}
 		}
 
