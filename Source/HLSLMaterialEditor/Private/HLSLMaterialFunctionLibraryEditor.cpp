@@ -63,11 +63,6 @@ void FVoxelMaterialExpressionLibraryEditor::Register()
 
 void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary& Library)
 {
-	ON_SCOPE_EXIT
-	{
-		Library.MarkPackageDirty();
-	};
-
 	const FString FullPath = Library.GetFilePath();
 	if (!FPaths::FileExists(FullPath))
 	{
@@ -293,6 +288,7 @@ FString FVoxelMaterialExpressionLibraryEditor::GenerateFunction(UHLSLMaterialFun
 	});
 	if (!MaterialFunctionPtr)
 	{
+		Library.MarkPackageDirty();
 		MaterialFunctionPtr = &Library.MaterialFunctions.Add_GetRef(nullptr);
 	}
 
@@ -314,6 +310,10 @@ FString FVoxelMaterialExpressionLibraryEditor::GenerateFunction(UHLSLMaterialFun
 	if (!MaterialFunction)
 	{
 		return "Failed to create asset";
+	}
+	if (*MaterialFunctionPtr != MaterialFunction)
+	{
+		Library.MarkPackageDirty();
 	}
 	*MaterialFunctionPtr = MaterialFunction;
 
