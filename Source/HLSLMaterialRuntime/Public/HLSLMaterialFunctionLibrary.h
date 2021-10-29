@@ -28,6 +28,16 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Config")
 	bool bPutFunctionsInSubdirectory = true;
 
+	// If true, will insert preprocessor directive so that compilation errors are relative to your hlsl file
+	// instead of the huge generated material file
+	//
+	// ie, errors will look like MyFile.hlsl:9 instead of /Generated/Material.usf:2330
+	// 
+	// The downside is that whenever you add or remove a line to your file, all the functions below it will have to be recompiled
+	// If compilation is taking forever for you, consider turning this off
+	UPROPERTY(EditAnywhere, Category = "Config")
+	bool bAccurateErrors = true;
+
 	UPROPERTY(EditAnywhere, Category = "Generated")
 	TArray<TSoftObjectPtr<UMaterialFunction>> MaterialFunctions;
 #endif

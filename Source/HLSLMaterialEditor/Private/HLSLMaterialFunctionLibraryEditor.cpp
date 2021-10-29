@@ -98,6 +98,7 @@ void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrar
 		EScope Scope = EScope::Global;
 		int32 Index = 0;
 		int32 ScopeDepth = 0;
+		int32 LineNumber = 0;
 
 		// Simplify line breaks handling
 		Text.ReplaceInline(TEXT("\r\n"), TEXT("\n"));
@@ -105,6 +106,11 @@ void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrar
 		while (Index < Text.Len())
 		{
 			const TCHAR Char = Text[Index++];
+			
+			if (FChar::IsLinebreak(Char))
+			{
+				LineNumber++;
+			}
 
 			switch (Scope)
 			{
@@ -216,6 +222,11 @@ void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrar
 					return;
 				}
 
+				if (Library.bAccurateErrors)
+				{
+					Functions.Last().StartLine = LineNumber;
+				}
+
 				Scope = EScope::FunctionBody;
 				ScopeDepth++;
 			}
@@ -272,7 +283,7 @@ void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrar
 
 	Library.MaterialFunctions.RemoveAll([&](TSoftObjectPtr<UMaterialFunction> InFunction)
 	{
-		return !InFunction.IsValid();
+		return !InFunction.LoadSynchronous();
 	});
 	
 	FMaterialUpdateContext UpdateContext;
@@ -291,6 +302,7 @@ FString FVoxelMaterialExpressionLibraryEditor::FFunction::GetHashedString() cons
 	const FString PluginHashVersion = "1";
 	const FString StringToHash =
 		PluginHashVersion + " " +
+		FString::FromInt(StartLine) + " " +
 		Comment + " " +
 		ReturnType + " " +
 		Name + "(" +
@@ -588,8 +600,7 @@ FString FVoxelMaterialExpressionLibraryEditor::GenerateFunction(UHLSLMaterialFun
 	UMaterialExpressionCustom* MaterialExpressionCustom = NewObject<UMaterialExpressionCustom>(MaterialFunction);
 	MaterialExpressionCustom->MaterialExpressionGuid = FGuid::NewGuid();
 	MaterialExpressionCustom->OutputType = CMOT_Float1;
-	MaterialExpressionCustom->Code = Function.Body.Replace(TEXT("return"), TEXT("return 0.f"));
-	MaterialExpressionCustom->Code = FString::Printf(TEXT("// START %s\n\n%s\n\n// END %s\n\nreturn 0.f;"), *Function.Name, *MaterialExpressionCustom->Code, *Function.Name);
+	MaterialExpressionCustom->Code = GenerateFunctionCode(Library, Function);
 	MaterialExpressionCustom->MaterialExpressionEditorX = 500;
 	MaterialExpressionCustom->MaterialExpressionEditorY = 0;
 	MaterialFunction->FunctionExpressions.Add(MaterialExpressionCustom);
@@ -655,6 +666,18 @@ FString FVoxelMaterialExpressionLibraryEditor::GenerateFunction(UHLSLMaterialFun
 	
 	ShowMessage(ESeverity::Info, FString::Printf(TEXT("%s updated"), *Function.Name));
 	return {};
+}
+
+FString FVoxelMaterialExpressionLibraryEditor::GenerateFunctionCode(const UHLSLMaterialFunctionLibrary& Library, const FFunction& Function)
+{
+	FString Code = Function.Body.Replace(TEXT("return"), TEXT("return 0.f"));
+
+	if (Library.bAccurateErrors)
+	{
+		Code = FString::Printf(TEXT("#line %d \"%s\"\n%s"), Function.StartLine + 1, *FPaths::GetCleanFilename(Library.GetFilePath()), *Code);
+	}
+
+	return FString::Printf(TEXT("// START %s\n\n%s\n\n// END %s\n\nreturn 0.f;"), *Function.Name, *Code, *Function.Name);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

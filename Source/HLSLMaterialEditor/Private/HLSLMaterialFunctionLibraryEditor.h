@@ -31,6 +31,7 @@ public:
 private:
 	struct FFunction
 	{
+		int32 StartLine = 0;
 		FString Comment;
 		FString ReturnType;
 		FString Name;
@@ -40,6 +41,7 @@ private:
 		FString GetHashedString() const;
 	};
 	static FString GenerateFunction(UHLSLMaterialFunctionLibrary& Library, FFunction Function, FMaterialUpdateContext& UpdateContext);
+	static FString GenerateFunctionCode(const UHLSLMaterialFunctionLibrary& Library, const FFunction& Function);
 	
 private:
 	static IMaterialEditor* FindMaterialEditorForAsset(UObject* InAsset);
