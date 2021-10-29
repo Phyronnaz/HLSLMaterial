@@ -53,5 +53,7 @@ private:
 	void UnbindWatcher();
 
 	void OnDirectoryChanged(const TArray<FFileChangeData>& FileChanges);
+
+	static void MakeRelativePath(FString& Path);
 #endif
 };

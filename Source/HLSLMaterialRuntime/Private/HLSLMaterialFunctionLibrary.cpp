@@ -10,10 +10,10 @@ UHLSLMaterialFunctionLibrary::FOnUpdate UHLSLMaterialFunctionLibrary::OnUpdate;
 
 FString UHLSLMaterialFunctionLibrary::GetFilePath() const
 {
-	FString FullPath = File.FilePath;
-	if (!FPaths::FileExists(FullPath))
+	FString FullPath;
+	if (!FPackageName::TryConvertLongPackageNameToFilename(File.FilePath, FullPath))
 	{
-		FullPath = FPaths::ProjectDir() / FullPath;
+		return File.FilePath;
 	}
 	return FullPath;
 }
@@ -37,27 +37,23 @@ void UHLSLMaterialFunctionLibrary::PostEditChangeProperty(FPropertyChangedEvent&
 		return;
 	}
 
-	const FString AbsoluteProjectDir = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir());
-	const FString AbsolutePickedPath = FPaths::ConvertRelativePathToFull(File.FilePath);
-
-	if (!FPaths::FileExists(AbsolutePickedPath))
-	{
-		// If absolute file doesn't exist, it might already be relative to project dir
-		// If not, then it might be a manual entry, so keep it untouched either way
-		return;
-	}
-
-	if (!AbsolutePickedPath.StartsWith(AbsoluteProjectDir))
-	{
-		return;
-	}
-
-	File.FilePath = AbsolutePickedPath.RightChop(AbsoluteProjectDir.Len());
-
 	if (bUpdateOnFileChange)
 	{
 		UnbindWatcher();
 		BindWatcher();
+	}
+
+	const FString PreviousPath = File.FilePath;
+	const FString PreviousAbsolutePath = FPaths::ConvertRelativePathToFull(GetFilePath());
+
+	MakeRelativePath(File.FilePath);
+
+	const FString NewAbsolutePath = FPaths::ConvertRelativePathToFull(GetFilePath());
+
+	if (PreviousAbsolutePath != NewAbsolutePath)
+	{
+		// Conversion isn't safe
+		File.FilePath = PreviousPath;
 	}
 }
 
@@ -85,8 +81,10 @@ void UHLSLMaterialFunctionLibrary::BindWatcher()
 
 	WatchedDirectory = FPaths::GetPath(GetFilePath());
 
-	if (WatchedDirectory.IsEmpty())
+	if (WatchedDirectory.IsEmpty() || 
+		!FPaths::DirectoryExists(WatchedDirectory))
 	{
+		WatchedDirectory.Reset();
 		return;
 	}
 
@@ -131,5 +129,25 @@ void UHLSLMaterialFunctionLibrary::OnDirectoryChanged(const TArray<FFileChangeDa
 			break;
 		}
 	}
+}
+
+void UHLSLMaterialFunctionLibrary::MakeRelativePath(FString& Path)
+{
+	const FString AbsolutePickedPath = FPaths::ConvertRelativePathToFull(Path);
+
+	if (!FPaths::FileExists(AbsolutePickedPath))
+	{
+		// This is either a manual entry or already a relative entry, don't do anything to it
+		return;
+	}
+
+	FString PackageName;
+	if (!FPackageName::TryConvertFilenameToLongPackageName(AbsolutePickedPath, PackageName))
+	{
+		return;
+	}
+
+	Path = PackageName + "." + FPaths::GetExtension(Path);
+	return;
 }
 #endif
