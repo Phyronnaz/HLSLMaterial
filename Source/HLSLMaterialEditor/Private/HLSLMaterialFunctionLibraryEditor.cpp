@@ -279,7 +279,15 @@ void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrar
 		UMaterialFunction* MaterialFunction = MaterialFunctionPtr->Get();
 		if (!MaterialFunction)
 		{
-			const FString BasePath = FPackageName::ObjectPathToPackageName(Library.GetPathName()) + "_GeneratedFunctions";
+			FString BasePath = FPackageName::ObjectPathToPackageName(Library.GetPathName());
+			if (Library.bPutFunctionsInSubdirectory)
+			{
+				BasePath += "_GeneratedFunctions";
+			}
+			else
+			{
+				BasePath = FPaths::GetPath(BasePath);
+			}
 
 			MaterialFunction = CreateAsset<UMaterialFunction>(Function.Name, BasePath);
 		}

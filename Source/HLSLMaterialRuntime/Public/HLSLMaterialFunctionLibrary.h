@@ -23,6 +23,11 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Config", AssetRegistrySearchable)
 	bool bUpdateOnFileChange = true;
 
+	// If true, functions will be put in a folder named "AssetName_GeneratedFunctions"
+	// If false they'll be generated next to this asset
+	UPROPERTY(EditAnywhere, Category = "Config")
+	bool bPutFunctionsInSubdirectory = true;
+
 	UPROPERTY(VisibleAnywhere, Category = "Generated")
 	TArray<TSoftObjectPtr<UMaterialFunction>> MaterialFunctions;
 #endif
