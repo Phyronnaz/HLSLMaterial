@@ -768,7 +768,7 @@ void FVoxelMaterialExpressionLibraryEditor::ReplaceMessages(FMessageLogListingVi
 				continue;
 			}
 
-			FRegexPattern RegexPattern("\\(([0-9]*),([0-9]*)-([0-9]*)\\)(.*)");
+			FRegexPattern RegexPattern("\\(([0-9]*),([0-9]*)(-([0-9]*))?\\)(.*)");
 			FRegexMatcher RegexMatcher(RegexPattern, ErrorSuffix);
 			if (!ensure(RegexMatcher.FindNext()))
 			{
@@ -778,12 +778,18 @@ void FVoxelMaterialExpressionLibraryEditor::ReplaceMessages(FMessageLogListingVi
 
 			const FString LineNumber = RegexMatcher.GetCaptureGroup(1);
 			const FString CharStart = RegexMatcher.GetCaptureGroup(2);
-			const FString CharEnd = RegexMatcher.GetCaptureGroup(3);
-			ErrorSuffix = RegexMatcher.GetCaptureGroup(4);
+			const FString CharEnd = RegexMatcher.GetCaptureGroup(4);
+			ErrorSuffix = RegexMatcher.GetCaptureGroup(5);
+
+			FString DisplayText = FString::Printf(TEXT("%s:%s:%s"), *Path, *LineNumber, *CharStart);
+			if (!CharEnd.IsEmpty())
+			{
+				DisplayText += "-" + CharEnd;
+			}
 
 			NewTokens.Add(FTextToken::Create(FText::FromString(ErrorPrefix)));
 			NewTokens.Add(FActionToken::Create(
-				FText::FromString(FString::Printf(TEXT("%s:%s:%s-%s"), *Path, *LineNumber, *CharStart, *CharEnd)),
+				FText::FromString(DisplayText),
 				INVTEXT("Open the file"),
 				FOnActionTokenExecuted::CreateLambda([=]
 				{
