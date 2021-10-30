@@ -16,10 +16,14 @@ FString UHLSLMaterialFunctionLibrary::GetFilePath() const
 FString UHLSLMaterialFunctionLibrary::GetFilePath(const FString& InFilePath)
 {
 	FString FullPath;
-	if (!FPackageName::TryConvertLongPackageNameToFilename(InFilePath, FullPath))
+	
+	if (FPackageName::TryConvertLongPackageNameToFilename(InFilePath, FullPath))
 	{
-		return InFilePath;
+		return FullPath;
 	}
+	
+	FullPath = FPaths::ConvertRelativePathToFull(InFilePath);
+	
 	return FullPath;
 }
 
