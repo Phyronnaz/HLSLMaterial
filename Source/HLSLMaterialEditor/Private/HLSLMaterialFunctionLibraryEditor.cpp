@@ -623,6 +623,8 @@ FString FVoxelMaterialExpressionLibraryEditor::GenerateFunction(UHLSLMaterialFun
 	MaterialExpressionCustom->Code = GenerateFunctionCode(Library, Function);
 	MaterialExpressionCustom->MaterialExpressionEditorX = 500;
 	MaterialExpressionCustom->MaterialExpressionEditorY = 0;
+	MaterialExpressionCustom->IncludeFilePaths = Library.IncludeFilePaths;
+	MaterialExpressionCustom->AdditionalDefines = Library.AdditionalDefines;
 	MaterialFunction->FunctionExpressions.Add(MaterialExpressionCustom);
 
 	MaterialExpressionCustom->Inputs.Reset();

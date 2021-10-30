@@ -3,6 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
+
+#include "Materials/MaterialExpressionCustom.h"
 #include "HLSLMaterialFunctionLibrary.generated.h"
 
 struct FFileChangeData;
@@ -37,6 +39,14 @@ public:
 	// If compilation is taking forever for you, consider turning this off
 	UPROPERTY(EditAnywhere, Category = "Config")
 	bool bAccurateErrors = true;
+
+	// Gets passed to the IncludeFilePaths property in material function custom node
+	UPROPERTY(EditAnywhere, Category = "Config")
+	TArray<FString> IncludeFilePaths;
+	
+	// Gets passed to the AdditionalDefines property in material function custom node
+	UPROPERTY(EditAnywhere, Category = "Config")
+	TArray<FCustomDefine> AdditionalDefines;
 
 	UPROPERTY(EditAnywhere, Category = "Generated")
 	TArray<TSoftObjectPtr<UMaterialFunction>> MaterialFunctions;
