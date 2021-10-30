@@ -1,14 +1,15 @@
 // Copyright 2021 Phyronnaz
 
 #include "HLSLMaterialFunctionLibraryEditor.h"
-
-#include "AssetToolsModule.h"
+#include "HLSLMaterialSettings.h"
 #include "HLSLMaterialUtilities.h"
 #include "HLSLMaterialFunctionLibrary.h"
 
 #include "Misc/ScopeExit.h"
 #include "Misc/FileHelper.h"
 #include "IMaterialEditor.h"
+#include "AssetToolsModule.h"
+#include "MaterialEditorModule.h"
 #include "MaterialEditingLibrary.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Framework/Notifications/NotificationManager.h"
@@ -19,6 +20,13 @@
 #include "Materials/MaterialExpressionFunctionOutput.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Widgets/Notifications/SNotificationList.h"
+#include "Internationalization/Regex.h"
+
+#define private public
+#include "MaterialEditor/Private/MaterialEditor.h"
+#include "MaterialEditor/Private/MaterialStats.h"
+#include "Presentation/MessageLogListingViewModel.h"
+#undef private
 
 UHLSLMaterialFunctionLibraryFactory::UHLSLMaterialFunctionLibraryFactory()
 {
@@ -41,6 +49,20 @@ HLSL_STARTUP_FUNCTION(EDelayedRegisterRunPhase::EndOfEngineInit, FVoxelMaterialE
 void FVoxelMaterialExpressionLibraryEditor::Register()
 {
 	UHLSLMaterialFunctionLibrary::OnUpdate.AddStatic(&FVoxelMaterialExpressionLibraryEditor::Generate);
+	
+	IMaterialEditorModule& MaterialEditorModule = FModuleManager::LoadModuleChecked<IMaterialEditorModule>( "MaterialEditor" );
+	MaterialEditorModule.OnMaterialEditorOpened().AddLambda([](TWeakPtr<IMaterialEditor> WeakMaterialEditor)
+	{
+		// The material editor is not yet initialized - can't hook into it just yet
+		FHLSLMaterialUtilities::DelayedCall([=]
+		{
+			const TSharedPtr<IMaterialEditor> PinnedMaterialEditor = WeakMaterialEditor.Pin();
+			if (PinnedMaterialEditor)
+			{
+				HookMessageLogHack(*PinnedMaterialEditor);
+			}
+		});
+	});
 
 	// Delay to ensure the editor is fully loaded before searching for assets
 	FHLSLMaterialUtilities::DelayedCall([]
@@ -398,10 +420,8 @@ FString FVoxelMaterialExpressionLibraryEditor::GenerateFunction(UHLSLMaterialFun
 
 		FString FinalDescription;
 		// Force ConvertToMultilineToolTip(40) to do something nice
-		for (int32 Index = 0; Index < Description.Len(); Index++)
+		for (const TCHAR Char : Description)
 		{
-			const TCHAR Char = Description[Index];
-
 			if (Char == TEXT('\n'))
 			{
 				while (FinalDescription.Len() % 41 != 0)
@@ -675,15 +695,162 @@ FString FVoxelMaterialExpressionLibraryEditor::GenerateFunctionCode(const UHLSLM
 	if (Library.bAccurateErrors)
 	{
 		Code = FString::Printf(TEXT(
-			"#line %d \"%s\"\n%s\n#line 10000 \"Error occured outside of Custom HLSL node, line number will be inaccurate. "
+			"#line %d \"%s%s%s\"\n%s\n#line 10000 \"Error occured outside of Custom HLSL node, line number will be inaccurate. "
 			"Untick bAccurateErrors on your HLSL library to fix this (%s)\""),
 			Function.StartLine + 1,
-			*FPaths::GetCleanFilename(Library.GetFilePath()),
+			UniqueMessagePrefix,
+			*Library.File.FilePath,
+			UniqueMessageSuffix,
 			*Code,
 			*Library.GetPathName());
 	}
 
 	return FString::Printf(TEXT("// START %s\n\n%s\n\n// END %s\n\nreturn 0.f;"), *Function.Name, *Code, *Function.Name);
+}
+
+void FVoxelMaterialExpressionLibraryEditor::HookMessageLogHack(IMaterialEditor& MaterialEditor)
+{
+	const TSharedPtr<FMaterialStats> StatsManager = static_cast<FMaterialEditor&>(MaterialEditor).MaterialStatsManager;
+	if (!ensure(StatsManager))
+	{
+		return;
+	}
+
+	const TSharedPtr<IMessageLogListing> Listing = StatsManager->GetOldStatsListing();
+	if (!Listing)
+	{
+		return;
+	}
+
+	FMessageLogListingViewModel& ViewModel = static_cast<FMessageLogListingViewModel&>(*Listing);
+	ViewModel.OnDataChanged().AddLambda([&ViewModel]
+	{
+		ReplaceMessages(ViewModel);
+	});
+}
+
+void FVoxelMaterialExpressionLibraryEditor::ReplaceMessages(FMessageLogListingViewModel& ViewModel)
+{
+	ensure(ViewModel.GetCurrentPageIndex() == 0);
+
+	const int32 NumMessages = ViewModel.NumMessages();
+	for (int32 MessageIndex = 0; MessageIndex < NumMessages; MessageIndex++)
+	{
+		const TSharedPtr<FTokenizedMessage> Message = ViewModel.GetMessageAtIndex(MessageIndex);
+		if (!ensure(Message))
+		{
+			continue;
+		}
+
+		TArray<TSharedRef<IMessageToken>> NewTokens;
+		for (const TSharedRef<IMessageToken>& Token : Message->GetMessageTokens())
+		{
+			if (Token->GetType() != EMessageToken::Text)
+			{
+				NewTokens.Add(Token);
+				continue;
+			}
+
+			const FString Error = Token->ToText().ToString();
+			FString ErrorPrefix;
+			FString ActualError;
+			if (!Error.Split(UniqueMessagePrefix, &ErrorPrefix, &ActualError))
+			{
+				NewTokens.Add(Token);
+				continue;
+			}
+
+			FString Path;
+			FString ErrorSuffix;
+			if (!ensure(ActualError.Split(UniqueMessageSuffix, &Path, &ErrorSuffix)))
+			{
+				NewTokens.Add(Token);
+				continue;
+			}
+
+			FRegexPattern RegexPattern("\\(([0-9]*),([0-9]*)-([0-9]*)\\)(.*)");
+			FRegexMatcher RegexMatcher(RegexPattern, ErrorSuffix);
+			if (!ensure(RegexMatcher.FindNext()))
+			{
+				NewTokens.Add(Token);
+				continue;
+			}
+
+			const FString LineNumber = RegexMatcher.GetCaptureGroup(1);
+			const FString CharStart = RegexMatcher.GetCaptureGroup(2);
+			const FString CharEnd = RegexMatcher.GetCaptureGroup(3);
+			ErrorSuffix = RegexMatcher.GetCaptureGroup(4);
+
+			NewTokens.Add(FTextToken::Create(FText::FromString(ErrorPrefix)));
+			NewTokens.Add(FActionToken::Create(
+				FText::FromString(FString::Printf(TEXT("%s:%s:%s-%s"), *Path, *LineNumber, *CharStart, *CharEnd)),
+				INVTEXT("Open the file"),
+				FOnActionTokenExecuted::CreateLambda([=]
+				{
+					FString ExePath = GetDefault<UHLSLMaterialSettings>()->HLSLEditor.FilePath;
+
+					{
+						// Replace environment variables on Windows
+
+						FString Variable;
+						bool bIsInVariable = false;
+						for (int32 Index = 0; Index < ExePath.Len(); Index++)
+						{
+							const TCHAR Char = ExePath[Index];
+							if (Char == TEXT('%'))
+							{
+								if (bIsInVariable)
+								{
+									if (ensure(ExePath.ReplaceInline(
+										*FString::Printf(TEXT("%%%s%%"), *Variable),
+										*FPlatformMisc::GetEnvironmentVariable(*Variable))))
+									{
+										Variable = {};
+										bIsInVariable = false;
+										Index = 0;
+									}
+									else
+									{
+										break;
+									}
+								}
+								else
+								{
+									bIsInVariable = true;
+								}
+							}
+							else
+							{
+								if (bIsInVariable)
+								{
+									Variable += Char;
+								}
+							}
+						}
+					}
+
+					const FString FullPath = UHLSLMaterialFunctionLibrary::GetFilePath(Path);
+					FString Args = GetDefault<UHLSLMaterialSettings>()->HLSLEditorArgs;
+					Args.ReplaceInline(TEXT("%FILE%"), *FullPath);
+					Args.ReplaceInline(TEXT("%LINE%"), *LineNumber);
+					Args.ReplaceInline(TEXT("%CHAR%"), *CharStart);
+
+					FProcHandle Handle = FPlatformProcess::CreateProc(*ExePath, *Args, true, false, false, nullptr, 0, nullptr, nullptr);
+					if (Handle.IsValid())
+					{
+						FPlatformProcess::CloseProc(Handle);
+					}
+					else
+					{
+						FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+							INVTEXT("Failed to open {0}\n\nYou can update the application used to open HLSL files in your editor settings, under Plugins -> HLSL Material"), 
+							FText::FromString(ExePath + Args)));
+					}
+				})));
+			NewTokens.Add(FTextToken::Create(FText::FromString(ErrorSuffix)));
+		}
+		HLSL_CONST_CAST(Message->GetMessageTokens()) = NewTokens;
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -15,6 +15,7 @@ public class HLSLMaterialEditor : ModuleRules
         bUseUnity = false;
 
         PrivateIncludePaths.Add(Path.Combine(ModuleDirectory, "Private"));
+        PublicIncludePaths.Add(Path.Combine(ModuleDirectory, "Public"));
 
         DynamicallyLoadedModuleNames.AddRange(
             new string[] {
@@ -30,8 +31,12 @@ public class HLSLMaterialEditor : ModuleRules
                 "RHI",
                 "Slate",
                 "SlateCore",
+                "MessageLog",
                 "MaterialEditor",
                 "HLSLMaterialRuntime",
+                "DeveloperSettings",
             });
+
+        PrivateIncludePaths.Add(Path.Combine(EngineDirectory, "Source/Developer/MessageLog/Private/"));
     }
 }

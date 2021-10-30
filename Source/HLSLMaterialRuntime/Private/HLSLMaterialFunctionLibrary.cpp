@@ -10,10 +10,15 @@ UHLSLMaterialFunctionLibrary::FOnUpdate UHLSLMaterialFunctionLibrary::OnUpdate;
 
 FString UHLSLMaterialFunctionLibrary::GetFilePath() const
 {
+	return GetFilePath(File.FilePath);
+}
+
+FString UHLSLMaterialFunctionLibrary::GetFilePath(const FString& InFilePath)
+{
 	FString FullPath;
-	if (!FPackageName::TryConvertLongPackageNameToFilename(File.FilePath, FullPath))
+	if (!FPackageName::TryConvertLongPackageNameToFilename(InFilePath, FullPath))
 	{
-		return File.FilePath;
+		return InFilePath;
 	}
 	return FullPath;
 }
@@ -43,17 +48,14 @@ void UHLSLMaterialFunctionLibrary::PostEditChangeProperty(FPropertyChangedEvent&
 		BindWatcher();
 	}
 
-	const FString PreviousPath = File.FilePath;
-	const FString PreviousAbsolutePath = FPaths::ConvertRelativePathToFull(GetFilePath());
+	FString NewPath = File.FilePath;
+	MakeRelativePath(NewPath);
 
-	MakeRelativePath(File.FilePath);
-
-	const FString NewAbsolutePath = FPaths::ConvertRelativePathToFull(GetFilePath());
-
-	if (PreviousAbsolutePath != NewAbsolutePath)
+	if (FPaths::ConvertRelativePathToFull(GetFilePath(File.FilePath)) ==
+		FPaths::ConvertRelativePathToFull(GetFilePath(NewPath)))
 	{
-		// Conversion isn't safe
-		File.FilePath = PreviousPath;
+		// Conversion is safe
+		File.FilePath = NewPath;
 	}
 }
 

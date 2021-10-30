@@ -16,3 +16,26 @@ HLSLMATERIALRUNTIME_API DECLARE_LOG_CATEGORY_EXTERN(LogHLSLMaterial, Log, All);
 
 #define HLSL_STARTUP_FUNCTION(Phase, ...) \
 	static const FDelayedAutoRegisterHelper ANONYMOUS_VARIABLE(DelayedAutoRegisterHelper)(Phase, __VA_ARGS__);
+
+template<class T>
+struct THLSLRemoveConst
+{
+	typedef T Type;
+};
+template<class T>
+struct THLSLRemoveConst<const T>
+{
+	typedef T Type;
+};
+template<class T>
+struct THLSLRemoveConst<const T*>
+{
+	typedef T* Type;
+};
+template<class T>
+struct THLSLRemoveConst<const T&>
+{
+	typedef T& Type;
+};
+
+#define HLSL_CONST_CAST(X) const_cast<THLSLRemoveConst<decltype(X)>::Type>(X)

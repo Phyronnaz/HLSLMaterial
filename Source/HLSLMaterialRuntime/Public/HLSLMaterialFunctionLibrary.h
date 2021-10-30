@@ -53,6 +53,7 @@ public:
 	}
 
 	FString GetFilePath() const;
+	static FString GetFilePath(const FString& InFilePath);
 
 	//~ Begin UObject Interface
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;

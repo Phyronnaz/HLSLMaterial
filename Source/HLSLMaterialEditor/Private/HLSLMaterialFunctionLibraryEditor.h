@@ -7,6 +7,7 @@
 #include "HLSLMaterialFunctionLibraryEditor.generated.h"
 
 class IMaterialEditor;
+class FMessageLogListingViewModel;
 class UHLSLMaterialFunctionLibrary;
 
 UCLASS()
@@ -29,6 +30,9 @@ public:
 	static void Generate(UHLSLMaterialFunctionLibrary& Library);
 
 private:
+	static constexpr const TCHAR* UniqueMessagePrefix = TEXT("[HLSLMaterial]");
+	static constexpr const TCHAR* UniqueMessageSuffix = TEXT("[/HLSLMaterial]");
+
 	struct FFunction
 	{
 		int32 StartLine = 0;
@@ -42,6 +46,8 @@ private:
 	};
 	static FString GenerateFunction(UHLSLMaterialFunctionLibrary& Library, FFunction Function, FMaterialUpdateContext& UpdateContext);
 	static FString GenerateFunctionCode(const UHLSLMaterialFunctionLibrary& Library, const FFunction& Function);
+	static void HookMessageLogHack(IMaterialEditor& MaterialEditor);
+	static void ReplaceMessages(FMessageLogListingViewModel& ViewModel);
 	
 private:
 	static IMaterialEditor* FindMaterialEditorForAsset(UObject* InAsset);

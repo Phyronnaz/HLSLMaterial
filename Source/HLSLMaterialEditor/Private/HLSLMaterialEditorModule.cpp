@@ -2,9 +2,11 @@
 
 #include "CoreMinimal.h"
 #include "IAssetTools.h"
+#include "ISettingsModule.h"
 #include "AssetToolsModule.h"
 #include "AssetTypeActions_Base.h"
 #include "Modules/ModuleInterface.h"
+#include "HLSLMaterialSettings.h"
 #include "HLSLMaterialFunctionLibrary.h"
 
 class FAssetTypeActions_HLSLMaterialFunctionLibrary : public FAssetTypeActions_Base
@@ -46,6 +48,15 @@ public:
 	{
 		IAssetTools& AssetTools = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools").Get();
 		AssetTools.RegisterAssetTypeActions(MakeShared<FAssetTypeActions_HLSLMaterialFunctionLibrary>());
+		
+		ISettingsModule& SettingsModule = FModuleManager::LoadModuleChecked<ISettingsModule>("Settings");
+		SettingsModule.RegisterSettings(
+			"Editor",
+			"Plugins",
+			"HLSL Material",
+			INVTEXT("HLSL Material"),
+			INVTEXT("Settings related to the HLSL Material plugin."),
+			GetMutableDefault<UHLSLMaterialSettings>());
 	}
 };
 IMPLEMENT_MODULE(FHLSLMaterialEditorModule, HLSLMaterialEditor);
