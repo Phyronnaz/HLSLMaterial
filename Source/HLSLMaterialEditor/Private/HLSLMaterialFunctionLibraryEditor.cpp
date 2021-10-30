@@ -114,7 +114,8 @@ void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrar
 			FunctionName,
 			FunctionArgs,
 			FunctionBodyStart,
-			FunctionBody
+			FunctionBody,
+			Preprocessor
 		};
 
 		EScope Scope = EScope::Global;
@@ -166,6 +167,11 @@ void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrar
 				else
 				{
 					Scope = EScope::FunctionReturn;
+				}
+
+				if (Char == TEXT('#'))
+				{
+					Scope = EScope::Preprocessor;
 				}
 			}
 			break;
@@ -278,6 +284,16 @@ void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrar
 				}
 
 				ensure(ScopeDepth == 0);
+				Scope = EScope::Global;
+			}
+			break;
+			case EScope::Preprocessor:
+			{
+				if (!FChar::IsLinebreak(Char))
+				{
+					continue;
+				}
+
 				Scope = EScope::Global;
 			}
 			break;
