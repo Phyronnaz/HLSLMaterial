@@ -27,8 +27,15 @@ void UHLSLMaterialFunctionLibrary::PostEditChangeProperty(FPropertyChangedEvent&
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
-	if (!PropertyChangedEvent.MemberProperty || 
-		PropertyChangedEvent.MemberProperty->GetFName() != GET_MEMBER_NAME_CHECKED(UHLSLMaterialFunctionLibrary, File))
+	if (!PropertyChangedEvent.MemberProperty)
+	{
+		return;
+	}
+
+	const FName MemberPropertyName = PropertyChangedEvent.MemberProperty->GetFName();
+
+	if (!(MemberPropertyName != GET_MEMBER_NAME_CHECKED(UHLSLMaterialFunctionLibrary, File) ||
+		  MemberPropertyName != GET_MEMBER_NAME_CHECKED(UHLSLMaterialFunctionLibrary, IncludeFilePaths)))
 	{
 		return;
 	}
