@@ -3,6 +3,8 @@
 #include "HLSLMaterialParser.h"
 #include "HLSLMaterialFunction.h"
 #include "HLSLMaterialFunctionLibrary.h"
+#include "HLSLMaterialMessages.h"
+#include "Internationalization/Regex.h"
 
 FString FHLSLMaterialParser::Parse(
 	const UHLSLMaterialFunctionLibrary& Library, 
@@ -218,4 +220,26 @@ FString FHLSLMaterialParser::Parse(
 	}
 
 	return {};
+}
+
+void FHLSLMaterialParser::GetIncludes(const FString& Text, TArray<FInclude>& OutIncludes)
+{
+	FRegexPattern RegexPattern(R"_((\A|\v)\s*#include "([^"]+)")_");
+	FRegexMatcher RegexMatcher(RegexPattern, Text);
+	while (RegexMatcher.FindNext())
+	{
+		const FString VirtualPath = RegexMatcher.GetCaptureGroup(2);
+
+		FString DiskPath = GetShaderSourceFilePath(VirtualPath);
+		if (DiskPath.IsEmpty())
+		{
+			FHLSLMaterialMessages::ShowError(TEXT("Failed to map include %s"), *VirtualPath);
+		}
+		else
+		{
+			DiskPath = FPaths::ConvertRelativePathToFull(DiskPath);
+		}
+
+		OutIncludes.Add({ VirtualPath, DiskPath });
+	}
 }

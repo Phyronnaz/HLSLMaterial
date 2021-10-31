@@ -7,12 +7,10 @@
 #include "HLSLMaterialParser.h"
 #include "HLSLMaterialUtilities.h"
 #include "HLSLMaterialFileWatcher.h"
+#include "HLSLMaterialMessages.h"
 
 #include "Misc/FileHelper.h"
-#include "Internationalization/Regex.h"
 #include "AssetRegistry/AssetRegistryModule.h"
-#include "Framework/Notifications/NotificationManager.h"
-#include "Widgets/Notifications/SNotificationList.h"
 
 class FHLSLMaterialEditorInterfaceImpl : public IHLSLMaterialEditorInterface
 {
@@ -57,7 +55,7 @@ HLSL_STARTUP_FUNCTION(EDelayedRegisterRunPhase::EndOfEngineInit, FHLSLMaterialFu
 
 TSharedRef<FVirtualDestructor> FHLSLMaterialFunctionLibraryEditor::CreateWatcher(UHLSLMaterialFunctionLibrary& Library)
 {
-	FLibraryScope Scope(Library);
+	FHLSLMaterialMessages::FLibraryScope Scope(Library);
 
 	TArray<FString> Files;
 	Files.Add(Library.GetFilePath());
@@ -65,10 +63,10 @@ TSharedRef<FVirtualDestructor> FHLSLMaterialFunctionLibraryEditor::CreateWatcher
 	FString Text;
 	if (TryLoadFileToString(Text, Library.GetFilePath()))
 	{
-		TArray<FInclude> Includes;
-		GetIncludes(Text, Includes);
+		TArray<FHLSLMaterialParser::FInclude> Includes;
+		FHLSLMaterialParser::GetIncludes(Text, Includes);
 
-		for (const FInclude& Include : Includes)
+		for (const FHLSLMaterialParser::FInclude& Include : Includes)
 		{
 			if (!Include.DiskPath.IsEmpty())
 			{
@@ -88,7 +86,7 @@ TSharedRef<FVirtualDestructor> FHLSLMaterialFunctionLibraryEditor::CreateWatcher
 
 void FHLSLMaterialFunctionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary& Library)
 {
-	FLibraryScope Scope(Library);
+	FHLSLMaterialMessages::FLibraryScope Scope(Library);
 
 	// Always recreate watcher in case includes changed
 	Library.CreateWatcherIfNeeded();
@@ -98,17 +96,17 @@ void FHLSLMaterialFunctionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary& 
 	FString Text;
 	if (!TryLoadFileToString(Text, FullPath))
 	{
-		ShowError(TEXT("Failed to read %s"), *FullPath);
+		FHLSLMaterialMessages::ShowError(TEXT("Failed to read %s"), *FullPath);
 		return;
 	}
 	
 	FString IncludesHash;
 	TArray<FString> IncludeFilePaths;
 	{
-		TArray<FInclude> Includes;
-		GetIncludes(Text, Includes);
+		TArray<FHLSLMaterialParser::FInclude> Includes;
+		FHLSLMaterialParser::GetIncludes(Text, Includes);
 
-		for (const FInclude& Include : Includes)
+		for (const FHLSLMaterialParser::FInclude& Include : Includes)
 		{
 			IncludeFilePaths.Add(Include.VirtualPath);
 
@@ -119,7 +117,7 @@ void FHLSLMaterialFunctionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary& 
 			}
 			else
 			{
-				ShowError(TEXT("Invalid include: %s"), *Include.VirtualPath);
+				FHLSLMaterialMessages::ShowError(TEXT("Invalid include: %s"), *Include.VirtualPath);
 			}
 		}
 	}
@@ -129,7 +127,7 @@ void FHLSLMaterialFunctionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary& 
 		const FString Error = FHLSLMaterialParser::Parse(Library, Text, Functions);
 		if (!Error.IsEmpty())
 		{
-			ShowError(TEXT("Parsing failed: %s"), *Error);
+			FHLSLMaterialMessages::ShowError(TEXT("Parsing failed: %s"), *Error);
 			return;
 		}
 	}
@@ -147,7 +145,7 @@ void FHLSLMaterialFunctionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary& 
 		const FString Error = FHLSLMaterialFunctionGenerator::GenerateFunction(Library, IncludeFilePaths, Function, UpdateContext);
 		if (!Error.IsEmpty())
 		{
-			ShowError(TEXT("Function %s: %s"), *Function.Name, *Error);
+			FHLSLMaterialMessages::ShowError(TEXT("Function %s: %s"), *Function.Name, *Error);
 		}
 	}
 }
@@ -177,46 +175,3 @@ bool FHLSLMaterialFunctionLibraryEditor::TryLoadFileToString(FString& Text, cons
 
 	return true;
 }
-
-void FHLSLMaterialFunctionLibraryEditor::GetIncludes(const FString& Text, TArray<FInclude>& OutIncludes)
-{
-	FRegexPattern RegexPattern(R"_((\A|\v)\s*#include "([^"]+)")_");
-	FRegexMatcher RegexMatcher(RegexPattern, Text);
-	while (RegexMatcher.FindNext())
-	{
-		const FString VirtualPath = RegexMatcher.GetCaptureGroup(2);
-
-		FString DiskPath = GetShaderSourceFilePath(VirtualPath);
-		if (DiskPath.IsEmpty())
-		{
-			ShowError(TEXT("Failed to map include %s"), *VirtualPath);
-		}
-		else
-		{
-			DiskPath = FPaths::ConvertRelativePathToFull(DiskPath);
-		}
-
-		OutIncludes.Add({ VirtualPath, DiskPath });
-	}
-}
-
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-
-void FHLSLMaterialFunctionLibraryEditor::ShowErrorImpl(FString Message)
-{
-	if (FLibraryScope::Library)
-	{
-		Message = FLibraryScope::Library->File.FilePath + ": " + Message;
-	}
-
-	FNotificationInfo Info(FText::FromString(Message));
-	Info.ExpireDuration = 10.f;
-	Info.CheckBoxState = ECheckBoxState::Unchecked;
-	FSlateNotificationManager::Get().AddNotification(Info);
-
-	UE_LOG(LogHLSLMaterial, Error, TEXT("%s"), *Message);
-}
-
-UHLSLMaterialFunctionLibrary* FHLSLMaterialFunctionLibraryEditor::FLibraryScope::Library;
