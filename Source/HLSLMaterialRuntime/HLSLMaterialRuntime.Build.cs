@@ -28,6 +28,7 @@ public class HLSLMaterialRuntime : ModuleRules
         PrivateDependencyModuleNames.AddRange(
             new string[]
             {
+                "RenderCore"
             }
         );
 

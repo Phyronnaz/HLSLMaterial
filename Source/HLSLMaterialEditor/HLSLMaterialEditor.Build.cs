@@ -29,6 +29,7 @@ public class HLSLMaterialEditor : ModuleRules
                 "Engine",
                 "UnrealEd",
                 "RHI",
+                "RenderCore",
                 "Slate",
                 "SlateCore",
                 "MessageLog",

@@ -83,25 +83,59 @@ void FVoxelMaterialExpressionLibraryEditor::Register()
 	});
 }
 
-void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary& Library)
+bool FVoxelMaterialExpressionLibraryEditor::TryLoadFileToString(FString& Text, const TCHAR* FullPath, const TCHAR* LibraryName)
 {
-	const FString FullPath = Library.GetFilePath();
 	if (!FPaths::FileExists(FullPath))
 	{
-		ShowMessage(ESeverity::Error, FString::Printf(TEXT("%s: invalid path %s"), *Library.GetName(), *Library.File.FilePath));
-		return;
+		ShowMessage(ESeverity::Error, FString::Printf(TEXT("%s: invalid path %s"), LibraryName, FullPath));
+		return false;
 	}
 
-	FString Text;
-	if (!FFileHelper::LoadFileToString(Text, *FullPath))
+	if (!FFileHelper::LoadFileToString(Text, FullPath))
 	{
 		FPlatformProcess::Sleep(0.1f);
 
-		if (!FFileHelper::LoadFileToString(Text, *FullPath))
+		if (!FFileHelper::LoadFileToString(Text, FullPath))
 		{
-			ShowMessage(ESeverity::Error, FString::Printf(TEXT("%s: failed to read %s"), *Library.GetName(), *Library.File.FilePath));
-			return;
+			ShowMessage(ESeverity::Error, FString::Printf(TEXT("%s: failed to read %s"), LibraryName, FullPath));
+			return false;
 		}
+	}
+
+	return true;
+}
+
+void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary& Library)
+{
+	const FString FullPath = Library.GetFilePath();
+	const FString LibraryName = *Library.GetName();
+	
+	FString Text;
+	if (!TryLoadFileToString(Text, *FullPath, *LibraryName))
+	{
+		return;
+	}
+
+	FString IncludeBodies;
+	for (const FString& IncludeFilePath : Library.IncludeFilePaths)
+	{
+		const FString IncludePath = FPaths::GetPath(IncludeFilePath);
+		const FString* IncludeMappedPath = AllShaderSourceDirectoryMappings().Find(IncludePath);
+
+		if (!IncludeMappedPath)
+		{
+			continue;
+		}
+
+		const FString IncludeMappedFilePath = *IncludeMappedPath / FPaths::GetCleanFilename(IncludeFilePath);
+
+		FString IncludeText;
+		if (!TryLoadFileToString(IncludeText, *IncludeMappedFilePath, *LibraryName))
+		{
+			continue;
+		}
+
+		IncludeBodies += IncludeText + "\n";
 	}
 
 	TArray<FFunction> Functions;
@@ -114,7 +148,8 @@ void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrar
 			FunctionName,
 			FunctionArgs,
 			FunctionBodyStart,
-			FunctionBody
+			FunctionBody,
+			Preprocessor
 		};
 
 		EScope Scope = EScope::Global;
@@ -166,6 +201,11 @@ void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrar
 				else
 				{
 					Scope = EScope::FunctionReturn;
+				}
+
+				if (Char == TEXT('#'))
+				{
+					Scope = EScope::Preprocessor;
 				}
 			}
 			break;
@@ -281,6 +321,16 @@ void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrar
 				Scope = EScope::Global;
 			}
 			break;
+			case EScope::Preprocessor:
+			{
+				if (!FChar::IsLinebreak(Char))
+				{
+					continue;
+				}
+
+				Scope = EScope::Global;
+			}
+			break;
 			default: ensure(false);
 			}
 		}
@@ -311,6 +361,8 @@ void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrar
 	FMaterialUpdateContext UpdateContext;
 	for (FFunction Function : Functions)
 	{
+		Function.HashedString = Function.GenerateHashedString(IncludeBodies);
+		
 		const FString Error = GenerateFunction(Library, Function, UpdateContext);
 		if (!Error.IsEmpty())
 		{
@@ -319,7 +371,7 @@ void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrar
 	}
 }
 
-FString FVoxelMaterialExpressionLibraryEditor::FFunction::GetHashedString() const
+FString FVoxelMaterialExpressionLibraryEditor::FFunction::GenerateHashedString(const FString& IncludeBodies) const
 {
 	const FString PluginHashVersion = "1";
 	const FString StringToHash =
@@ -329,7 +381,8 @@ FString FVoxelMaterialExpressionLibraryEditor::FFunction::GetHashedString() cons
 		ReturnType + " " +
 		Name + "(" +
 		FString::Join(Arguments, TEXT(",")) + ")" +
-		Body;
+		Body +
+		IncludeBodies;
 
 	uint32 Hash[5];
 	const TArray<TCHAR>& Array = StringToHash.GetCharArray();
@@ -375,10 +428,9 @@ FString FVoxelMaterialExpressionLibraryEditor::GenerateFunction(UHLSLMaterialFun
 	}
 	*MaterialFunctionPtr = MaterialFunction;
 
-	const FString HashedString = Function.GetHashedString();
 	for (UMaterialExpressionComment* Comment : MaterialFunction->FunctionEditorComments)
 	{
-		if (Comment && Comment->Text.Contains(HashedString))
+		if (Comment && Comment->Text.Contains(Function.HashedString))
 		{
 			UE_LOG(LogHLSLMaterial, Log, TEXT("%s already up to date"), *Function.Name);
 			return {};
@@ -623,6 +675,8 @@ FString FVoxelMaterialExpressionLibraryEditor::GenerateFunction(UHLSLMaterialFun
 	MaterialExpressionCustom->Code = GenerateFunctionCode(Library, Function);
 	MaterialExpressionCustom->MaterialExpressionEditorX = 500;
 	MaterialExpressionCustom->MaterialExpressionEditorY = 0;
+	MaterialExpressionCustom->IncludeFilePaths = Library.IncludeFilePaths;
+	MaterialExpressionCustom->AdditionalDefines = Library.AdditionalDefines;
 	MaterialFunction->FunctionExpressions.Add(MaterialExpressionCustom);
 
 	MaterialExpressionCustom->Inputs.Reset();
@@ -650,7 +704,7 @@ FString FVoxelMaterialExpressionLibraryEditor::GenerateFunction(UHLSLMaterialFun
 		Comment->MaterialExpressionEditorY = -200;
 		Comment->SizeX = 1000;
 		Comment->SizeY = 100;
-		Comment->Text = "DO NOT MODIFY THIS\nAutogenerated from " + Library.File.FilePath + "\nLibrary " + Library.GetPathName() + "\n" + HashedString;
+		Comment->Text = "DO NOT MODIFY THIS\nAutogenerated from " + Library.File.FilePath + "\nLibrary " + Library.GetPathName() + "\n" + Function.HashedString;
 		MaterialFunction->FunctionEditorComments.Add(Comment);
 	}
 
@@ -705,7 +759,7 @@ FString FVoxelMaterialExpressionLibraryEditor::GenerateFunctionCode(const UHLSLM
 			*Library.GetPathName());
 	}
 
-	return FString::Printf(TEXT("// START %s\n\n%s\n\n// END %s\n\nreturn 0.f;"), *Function.Name, *Code, *Function.Name);
+	return FString::Printf(TEXT("// START %s\n\n%s\n\n// END %s\n\nreturn 0.f;\n//%s\n"), *Function.Name, *Code, *Function.Name, *Function.HashedString);
 }
 
 void FVoxelMaterialExpressionLibraryEditor::HookMessageLogHack(IMaterialEditor& MaterialEditor)

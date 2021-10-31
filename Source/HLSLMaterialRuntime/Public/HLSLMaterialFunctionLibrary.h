@@ -3,6 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
+
+#include "Materials/MaterialExpressionCustom.h"
 #include "HLSLMaterialFunctionLibrary.generated.h"
 
 struct FFileChangeData;
@@ -38,6 +40,14 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Config")
 	bool bAccurateErrors = true;
 
+	// Gets passed to the IncludeFilePaths property in material function custom node
+	UPROPERTY(EditAnywhere, Category = "Config")
+	TArray<FString> IncludeFilePaths;
+	
+	// Gets passed to the AdditionalDefines property in material function custom node
+	UPROPERTY(EditAnywhere, Category = "Config")
+	TArray<FCustomDefine> AdditionalDefines;
+
 	UPROPERTY(EditAnywhere, Category = "Generated")
 	TArray<TSoftObjectPtr<UMaterialFunction>> MaterialFunctions;
 #endif
@@ -62,13 +72,19 @@ public:
 	//~ End UObject Interface
 
 private:
-	FString WatchedDirectory;
-	FDelegateHandle WatcherDelegate;
+	struct FWatched
+	{
+		FString Directory;
+		FDelegateHandle Handle;
+	};
+	FWatched Watched;
+	TArray<FWatched> WatchedIncludes;
 
-	void BindWatcher();
-	void UnbindWatcher();
+	void BindWatchers();
+	void UnbindWatchers();
 
 	void OnDirectoryChanged(const TArray<FFileChangeData>& FileChanges);
+	void OnIncludeDirectoryChanged(const TArray<FFileChangeData>& FileChanges);
 
 	static void MakeRelativePath(FString& Path);
 #endif
