@@ -8,11 +8,17 @@
 class FHLSLMaterialFileWatcher
 	: public FVirtualDestructor
 	, public TSharedFromThis<FHLSLMaterialFileWatcher>
+	, public FTickerObjectBase
 {
 public:
 	FSimpleMulticastDelegate OnFileChanged;
 
 	static TSharedRef<FHLSLMaterialFileWatcher> Create(const TArray<FString>& InFilesToWatch);
+
+protected:
+	//~ Begin FTickerObjectBase Interface
+	virtual bool Tick(float DeltaTime) override;
+	//~ End FTickerObjectBase Interface
 
 private:
 	class FWatcher
@@ -35,7 +41,9 @@ private:
 	TSet<FString> FilesToWatch;
 	TArray<TSharedPtr<FWatcher>> Watchers;
 
+	bool bUpdateOnNextTick = false;
+
 	FHLSLMaterialFileWatcher() = default;
 
-	void OnDirectoryChanged(const TArray<FFileChangeData>& FileChanges) const;
+	void OnDirectoryChanged(const TArray<FFileChangeData>& FileChanges);
 };

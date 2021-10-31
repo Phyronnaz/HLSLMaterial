@@ -25,6 +25,22 @@ TSharedRef<FHLSLMaterialFileWatcher> FHLSLMaterialFileWatcher::Create(const TArr
 	return Watcher;
 }
 
+bool FHLSLMaterialFileWatcher::Tick(float DeltaTime)
+{
+	if (bUpdateOnNextTick)
+	{
+		bUpdateOnNextTick = false;
+
+		// Be extra safe as OnFileChanged might end up deleting us
+		FHLSLMaterialUtilities::DelayedCall([OnFileChangedCopy = OnFileChanged]
+		{
+			OnFileChangedCopy.Broadcast();
+		});
+	}
+
+	return true;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -81,7 +97,7 @@ FHLSLMaterialFileWatcher::FWatcher::~FWatcher()
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-void FHLSLMaterialFileWatcher::OnDirectoryChanged(const TArray<FFileChangeData>& FileChanges) const
+void FHLSLMaterialFileWatcher::OnDirectoryChanged(const TArray<FFileChangeData>& FileChanges)
 {
 	for (const FFileChangeData& FileChange : FileChanges)
 	{
@@ -89,7 +105,7 @@ void FHLSLMaterialFileWatcher::OnDirectoryChanged(const TArray<FFileChangeData>&
 		if (FilesToWatch.Contains(AbsolutePath))
 		{
 			UE_LOG(LogHLSLMaterial, Log, TEXT("Update triggered from %s"), *AbsolutePath);
-			OnFileChanged.Broadcast();
+			bUpdateOnNextTick = true;
 			break;
 		}
 	}
