@@ -5,7 +5,9 @@
 #include "CoreMinimal.h"
 #include "IDirectoryWatcher.h"
 
-class FHLSLMaterialFileWatcher : public TSharedFromThis<FHLSLMaterialFileWatcher>
+class FHLSLMaterialFileWatcher
+	: public FVirtualDestructor
+	, public TSharedFromThis<FHLSLMaterialFileWatcher>
 {
 public:
 	FSimpleMulticastDelegate OnFileChanged;

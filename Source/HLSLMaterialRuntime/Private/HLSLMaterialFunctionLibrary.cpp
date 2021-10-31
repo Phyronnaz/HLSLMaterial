@@ -1,10 +1,9 @@
 // Copyright 2021 Phyronnaz
 
 #include "HLSLMaterialFunctionLibrary.h"
-#include "HLSLMaterialFileWatcher.h"
 
 #if WITH_EDITOR
-UHLSLMaterialFunctionLibrary::FOnUpdate UHLSLMaterialFunctionLibrary::OnUpdate;
+IHLSLMaterialEditorInterface* IHLSLMaterialEditorInterface::StaticInterface = nullptr;
 
 FString UHLSLMaterialFunctionLibrary::GetFilePath() const
 {
@@ -85,11 +84,7 @@ void UHLSLMaterialFunctionLibrary::CreateWatcher()
 		Files.Add(FPaths::ConvertRelativePathToFull(MappedInclude));
 	}
 
-	Watcher = FHLSLMaterialFileWatcher::Create(Files);
-	Watcher->OnFileChanged.AddWeakLambda(this, [=]
-	{
-		OnUpdate.Broadcast(*this);
-	});
+	Watcher = IHLSLMaterialEditorInterface::Get().CreateWatcher(*this, Files);
 }
 
 void UHLSLMaterialFunctionLibrary::MakeRelativePath(FString& Path)

@@ -3,13 +3,32 @@
 #pragma once
 
 #include "CoreMinimal.h"
-
 #include "Materials/MaterialExpressionCustom.h"
 #include "HLSLMaterialFunctionLibrary.generated.h"
 
-struct FFileChangeData;
-class UMaterialFunction;
-class FHLSLMaterialFileWatcher;
+class UHLSLMaterialFunctionLibrary;
+
+#if WITH_EDITOR
+class HLSLMATERIALRUNTIME_API IHLSLMaterialEditorInterface
+{
+public:
+	virtual ~IHLSLMaterialEditorInterface() = default;
+
+	virtual TSharedRef<FVirtualDestructor> CreateWatcher(UHLSLMaterialFunctionLibrary& Library, const TArray<FString>& Files) = 0;
+	virtual void Update(UHLSLMaterialFunctionLibrary& Library) = 0;
+
+public:
+	static IHLSLMaterialEditorInterface& Get()
+	{
+		return *StaticInterface;
+	}
+
+private:
+	static IHLSLMaterialEditorInterface* StaticInterface;
+
+	friend class FVoxelMaterialFunctionLibraryEditor;
+};
+#endif
 
 UCLASS()
 class HLSLMATERIALRUNTIME_API UHLSLMaterialFunctionLibrary : public UObject
@@ -55,14 +74,6 @@ public:
 
 #if WITH_EDITOR
 public:
-	DECLARE_MULTICAST_DELEGATE_OneParam(FOnUpdate, UHLSLMaterialFunctionLibrary&);
-	static FOnUpdate OnUpdate;
-
-	void Update()
-	{
-		OnUpdate.Broadcast(*this);
-	}
-
 	FString GetFilePath() const;
 	static FString GetFilePath(const FString& InFilePath);
 
@@ -73,7 +84,7 @@ public:
 	//~ End UObject Interface
 
 private:
-	TSharedPtr<FHLSLMaterialFileWatcher> Watcher;
+	TSharedPtr<FVirtualDestructor> Watcher;
 
 	void CreateWatcher();
 

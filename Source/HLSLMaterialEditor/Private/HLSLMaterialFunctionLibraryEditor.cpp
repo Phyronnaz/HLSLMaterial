@@ -3,6 +3,7 @@
 #include "HLSLMaterialFunctionLibraryEditor.h"
 #include "HLSLMaterialSettings.h"
 #include "HLSLMaterialUtilities.h"
+#include "HLSLMaterialFileWatcher.h"
 #include "HLSLMaterialFunctionLibrary.h"
 
 #include "Misc/ScopeExit.h"
@@ -40,15 +41,34 @@ UObject* UHLSLMaterialFunctionLibraryFactory::FactoryCreateNew(UClass* Class, UO
 	return NewObject<UObject>(InParent, Class, Name, Flags);
 }
 
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-
-HLSL_STARTUP_FUNCTION(EDelayedRegisterRunPhase::EndOfEngineInit, FVoxelMaterialExpressionLibraryEditor::Register);
-
-void FVoxelMaterialExpressionLibraryEditor::Register()
+class FHLSLMaterialEditorInterfaceImpl : public IHLSLMaterialEditorInterface
 {
-	UHLSLMaterialFunctionLibrary::OnUpdate.AddStatic(&FVoxelMaterialExpressionLibraryEditor::Generate);
+public:
+	virtual TSharedRef<FVirtualDestructor> CreateWatcher(UHLSLMaterialFunctionLibrary& Library, const TArray<FString>& Files) override
+	{
+		const TSharedRef<FHLSLMaterialFileWatcher> Watcher = FHLSLMaterialFileWatcher::Create(Files);
+		Watcher->OnFileChanged.AddWeakLambda(&Library, [&Library]
+		{
+			FVoxelMaterialFunctionLibraryEditor::Generate(Library);
+		});
+
+		return Watcher;
+	}
+	virtual void Update(UHLSLMaterialFunctionLibrary& Library) override
+	{
+		FVoxelMaterialFunctionLibraryEditor::Generate(Library);
+	}
+};
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+HLSL_STARTUP_FUNCTION(EDelayedRegisterRunPhase::EndOfEngineInit, FVoxelMaterialFunctionLibraryEditor::Register);
+
+void FVoxelMaterialFunctionLibraryEditor::Register()
+{
+	IHLSLMaterialEditorInterface::StaticInterface = new FHLSLMaterialEditorInterfaceImpl();
 	
 	IMaterialEditorModule& MaterialEditorModule = FModuleManager::LoadModuleChecked<IMaterialEditorModule>( "MaterialEditor" );
 	MaterialEditorModule.OnMaterialEditorOpened().AddLambda([](TWeakPtr<IMaterialEditor> WeakMaterialEditor)
@@ -83,7 +103,7 @@ void FVoxelMaterialExpressionLibraryEditor::Register()
 	});
 }
 
-bool FVoxelMaterialExpressionLibraryEditor::TryLoadFileToString(FString& Text, const FString& FullPath, const FString& LibraryName)
+bool FVoxelMaterialFunctionLibraryEditor::TryLoadFileToString(FString& Text, const FString& FullPath, const FString& LibraryName)
 {
 	if (!FPaths::FileExists(FullPath))
 	{
@@ -105,7 +125,7 @@ bool FVoxelMaterialExpressionLibraryEditor::TryLoadFileToString(FString& Text, c
 	return true;
 }
 
-void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary& Library)
+void FVoxelMaterialFunctionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary& Library)
 {
 	const FString FullPath = Library.GetFilePath();
 	const FString LibraryName = Library.GetName();
@@ -372,7 +392,7 @@ void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrar
 	}
 }
 
-FString FVoxelMaterialExpressionLibraryEditor::HashString(const FString& String)
+FString FVoxelMaterialFunctionLibraryEditor::HashString(const FString& String)
 {
 	uint32 Hash[5];
 	const TArray<TCHAR>& Array = String.GetCharArray();
@@ -381,7 +401,7 @@ FString FVoxelMaterialExpressionLibraryEditor::HashString(const FString& String)
 	return FGuid(Hash[0] ^ Hash[4], Hash[1], Hash[2], Hash[3]).ToString();
 }
 
-FString FVoxelMaterialExpressionLibraryEditor::FFunction::GenerateHashedString(const FString& IncludesHash) const
+FString FVoxelMaterialFunctionLibraryEditor::FFunction::GenerateHashedString(const FString& IncludesHash) const
 {
 	const FString PluginHashVersion = "1";
 	const FString StringToHash =
@@ -397,7 +417,7 @@ FString FVoxelMaterialExpressionLibraryEditor::FFunction::GenerateHashedString(c
 	return "HLSL Hash: " + HashString(StringToHash);
 }
 
-FString FVoxelMaterialExpressionLibraryEditor::GenerateFunction(UHLSLMaterialFunctionLibrary& Library, FFunction Function, FMaterialUpdateContext& UpdateContext)
+FString FVoxelMaterialFunctionLibraryEditor::GenerateFunction(UHLSLMaterialFunctionLibrary& Library, FFunction Function, FMaterialUpdateContext& UpdateContext)
 {
 	TSoftObjectPtr<UMaterialFunction>* MaterialFunctionPtr = Library.MaterialFunctions.FindByPredicate([&](TSoftObjectPtr<UMaterialFunction> InFunction)
 	{
@@ -748,7 +768,7 @@ FString FVoxelMaterialExpressionLibraryEditor::GenerateFunction(UHLSLMaterialFun
 	return {};
 }
 
-FString FVoxelMaterialExpressionLibraryEditor::GenerateFunctionCode(const UHLSLMaterialFunctionLibrary& Library, const FFunction& Function)
+FString FVoxelMaterialFunctionLibraryEditor::GenerateFunctionCode(const UHLSLMaterialFunctionLibrary& Library, const FFunction& Function)
 {
 	FString Code = Function.Body.Replace(TEXT("return"), TEXT("return 0.f"));
 
@@ -768,7 +788,7 @@ FString FVoxelMaterialExpressionLibraryEditor::GenerateFunctionCode(const UHLSLM
 	return FString::Printf(TEXT("// START %s\n\n%s\n\n// END %s\n\nreturn 0.f;\n//%s\n"), *Function.Name, *Code, *Function.Name, *Function.HashedString);
 }
 
-void FVoxelMaterialExpressionLibraryEditor::HookMessageLogHack(IMaterialEditor& MaterialEditor)
+void FVoxelMaterialFunctionLibraryEditor::HookMessageLogHack(IMaterialEditor& MaterialEditor)
 {
 	const TSharedPtr<FMaterialStats> StatsManager = static_cast<FMaterialEditor&>(MaterialEditor).MaterialStatsManager;
 	if (!ensure(StatsManager))
@@ -789,7 +809,7 @@ void FVoxelMaterialExpressionLibraryEditor::HookMessageLogHack(IMaterialEditor& 
 	});
 }
 
-void FVoxelMaterialExpressionLibraryEditor::ReplaceMessages(FMessageLogListingViewModel& ViewModel)
+void FVoxelMaterialFunctionLibraryEditor::ReplaceMessages(FMessageLogListingViewModel& ViewModel)
 {
 	ensure(ViewModel.GetCurrentPageIndex() == 0);
 
@@ -970,7 +990,7 @@ void FVoxelMaterialExpressionLibraryEditor::ReplaceMessages(FMessageLogListingVi
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-IMaterialEditor* FVoxelMaterialExpressionLibraryEditor::FindMaterialEditorForAsset(UObject* InAsset)
+IMaterialEditor* FVoxelMaterialFunctionLibraryEditor::FindMaterialEditorForAsset(UObject* InAsset)
 {
 	// From MaterialEditor\Private\MaterialEditingLibrary.cpp
 
@@ -986,7 +1006,7 @@ IMaterialEditor* FVoxelMaterialExpressionLibraryEditor::FindMaterialEditorForAss
 	return nullptr;
 }
 
-UObject* FVoxelMaterialExpressionLibraryEditor::CreateAsset(FString AssetName, FString FolderPath, UClass* Class, FString Suffix)
+UObject* FVoxelMaterialFunctionLibraryEditor::CreateAsset(FString AssetName, FString FolderPath, UClass* Class, FString Suffix)
 {
 	const FString PackageName = FolderPath / AssetName;
 
@@ -1029,7 +1049,7 @@ UObject* FVoxelMaterialExpressionLibraryEditor::CreateAsset(FString AssetName, F
 	return Object;
 }
 
-void FVoxelMaterialExpressionLibraryEditor::ShowMessageImpl(ESeverity Severity, FString Message)
+void FVoxelMaterialFunctionLibraryEditor::ShowMessageImpl(ESeverity Severity, FString Message)
 {
 	FNotificationInfo Info(FText::FromString(Message));
 	if (Severity == ESeverity::Info)

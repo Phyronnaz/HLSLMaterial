@@ -23,7 +23,7 @@ public:
 	//~ End UFactory Interface
 };
 
-class FVoxelMaterialExpressionLibraryEditor
+class FVoxelMaterialFunctionLibraryEditor
 {
 public:
 	static void Register();
