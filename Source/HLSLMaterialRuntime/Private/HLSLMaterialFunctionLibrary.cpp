@@ -14,8 +14,11 @@ FString UHLSLMaterialFunctionLibrary::GetFilePath(const FString& InFilePath)
 {
 	FString FullPath;
 
-	// Try to convert from /Game/Smthg to the full filename
-	if (!FPackageName::TryConvertLongPackageNameToFilename(InFilePath, FullPath))
+	if (
+		// Try to convert from a virtual content path, eg /Game/Smthg
+		!FPackageName::TryConvertLongPackageNameToFilename(InFilePath, FullPath) &&
+		// Try to convert from a virtual shader path, eg /Plugin/Smthg
+		!TryConvertShaderPathToFilename(InFilePath, FullPath))
 	{
 		FullPath = InFilePath;
 	}
@@ -98,11 +101,56 @@ void UHLSLMaterialFunctionLibrary::MakeRelativePath(FString& Path)
 	}
 
 	FString PackageName;
-	if (!FPackageName::TryConvertFilenameToLongPackageName(AbsolutePickedPath, PackageName))
+	if (FPackageName::TryConvertFilenameToLongPackageName(AbsolutePickedPath, PackageName))
 	{
+		Path = PackageName + "." + FPaths::GetExtension(Path);
 		return;
 	}
 
-	Path = PackageName + "." + FPaths::GetExtension(Path);
+	FString ShaderPath;
+	if (TryConvertFilenameToShaderPath(AbsolutePickedPath, ShaderPath))
+	{
+		Path = ShaderPath;
+		return;
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+bool UHLSLMaterialFunctionLibrary::TryConvertPathImpl(const TMap<FString, FString>& DirectoryMappings, const FString& InPath, FString& OutPath)
+{
+	FString ParentDirectoryPath = FPaths::GetPath(InPath);
+	FString RelativeDirectoryPath = FPaths::GetCleanFilename(InPath);
+	while (!ParentDirectoryPath.IsEmpty())
+	{
+		if (const FString* Mapping = DirectoryMappings.Find(ParentDirectoryPath))
+		{
+			OutPath = FPaths::Combine(*Mapping, RelativeDirectoryPath);
+			return true;
+		}
+
+		RelativeDirectoryPath = FPaths::GetCleanFilename(ParentDirectoryPath) / RelativeDirectoryPath;
+		ParentDirectoryPath = FPaths::GetPath(ParentDirectoryPath);
+	}
+
+	return false;
+}
+
+bool UHLSLMaterialFunctionLibrary::TryConvertShaderPathToFilename(const FString& ShaderPath, FString& OutFilename)
+{
+	return TryConvertPathImpl(AllShaderSourceDirectoryMappings(), ShaderPath, OutFilename);
+}
+
+bool UHLSLMaterialFunctionLibrary::TryConvertFilenameToShaderPath(const FString& Filename, FString& OutShaderPath)
+{
+	TMap<FString, FString> ShaderInverseDirectoryMappings;
+	for (auto& It : AllShaderSourceDirectoryMappings())
+	{
+		ShaderInverseDirectoryMappings.Add(It.Value, It.Key);
+	}
+
+	return TryConvertPathImpl(ShaderInverseDirectoryMappings, Filename, OutShaderPath);
 }
 #endif
