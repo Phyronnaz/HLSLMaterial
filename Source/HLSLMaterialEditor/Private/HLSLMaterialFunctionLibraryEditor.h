@@ -71,4 +71,5 @@ private:
 		Error
 	};
 	static void ShowMessage(ESeverity Severity, FString Message);
+	static bool TryLoadFileToString(FString& Text, const TCHAR* FullPath, const TCHAR* LibraryName);
 };

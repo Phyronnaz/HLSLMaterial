@@ -83,25 +83,37 @@ void FVoxelMaterialExpressionLibraryEditor::Register()
 	});
 }
 
-void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary& Library)
+bool FVoxelMaterialExpressionLibraryEditor::TryLoadFileToString(FString& Text, const TCHAR* FullPath, const TCHAR* LibraryName)
 {
-	const FString FullPath = Library.GetFilePath();
 	if (!FPaths::FileExists(FullPath))
 	{
-		ShowMessage(ESeverity::Error, FString::Printf(TEXT("%s: invalid path %s"), *Library.GetName(), *Library.File.FilePath));
-		return;
+		ShowMessage(ESeverity::Error, FString::Printf(TEXT("%s: invalid path %s"), LibraryName, FullPath));
+		return false;
 	}
 
-	FString Text;
-	if (!FFileHelper::LoadFileToString(Text, *FullPath))
+	if (!FFileHelper::LoadFileToString(Text, FullPath))
 	{
 		FPlatformProcess::Sleep(0.1f);
 
-		if (!FFileHelper::LoadFileToString(Text, *FullPath))
+		if (!FFileHelper::LoadFileToString(Text, FullPath))
 		{
-			ShowMessage(ESeverity::Error, FString::Printf(TEXT("%s: failed to read %s"), *Library.GetName(), *Library.File.FilePath));
-			return;
+			ShowMessage(ESeverity::Error, FString::Printf(TEXT("%s: failed to read %s"), LibraryName, FullPath));
+			return false;
 		}
+	}
+
+	return true;
+}
+
+void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary& Library)
+{
+	const FString FullPath = Library.GetFilePath();
+	const FString LibraryName = *Library.GetName();
+	
+	FString Text;
+	if (!TryLoadFileToString(Text, *FullPath, *LibraryName))
+	{
+		return;
 	}
 
 	FString IncludeBodies;
@@ -118,17 +130,9 @@ void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrar
 		const FString IncludeMappedFilePath = *IncludeMappedPath / FPaths::GetCleanFilename(IncludeFilePath);
 
 		FString IncludeText;
-		if (!FFileHelper::LoadFileToString(IncludeText, *IncludeMappedFilePath))
+		if (!TryLoadFileToString(IncludeText, *IncludeMappedFilePath, *LibraryName))
 		{
-			FPlatformProcess::Sleep(0.1f);
-
-			if (!FFileHelper::LoadFileToString(IncludeText, *IncludeMappedFilePath))
-			{
-				ShowMessage(
-					ESeverity::Error,
-					FString::Printf(TEXT("%s: failed to read %s"), *Library.GetName(), *IncludeMappedFilePath));
-				return;
-			}
+			continue;
 		}
 
 		IncludeBodies += IncludeText + "\n";
