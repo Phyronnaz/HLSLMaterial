@@ -63,10 +63,7 @@ TSharedRef<FVirtualDestructor> FHLSLMaterialFunctionLibraryEditor::CreateWatcher
 	FString Text;
 	if (TryLoadFileToString(Text, Library.GetFilePath()))
 	{
-		TArray<FHLSLMaterialParser::FInclude> Includes;
-		FHLSLMaterialParser::GetIncludes(Text, Includes);
-
-		for (const FHLSLMaterialParser::FInclude& Include : Includes)
+		for (const FHLSLMaterialParser::FInclude& Include : FHLSLMaterialParser::GetIncludes(Text))
 		{
 			if (!Include.DiskPath.IsEmpty())
 			{
@@ -100,26 +97,28 @@ void FHLSLMaterialFunctionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary& 
 		return;
 	}
 	
-	FString IncludesHash;
+	FString BaseHash;
 	TArray<FString> IncludeFilePaths;
+	for (const FHLSLMaterialParser::FInclude& Include : FHLSLMaterialParser::GetIncludes(Text))
 	{
-		TArray<FHLSLMaterialParser::FInclude> Includes;
-		FHLSLMaterialParser::GetIncludes(Text, Includes);
+		IncludeFilePaths.Add(Include.VirtualPath);
 
-		for (const FHLSLMaterialParser::FInclude& Include : Includes)
+		FString IncludeText;
+		if (TryLoadFileToString(IncludeText, Include.DiskPath))
 		{
-			IncludeFilePaths.Add(Include.VirtualPath);
-
-			FString IncludeText;
-			if (TryLoadFileToString(IncludeText, Include.DiskPath))
-			{
-				IncludesHash += FHLSLMaterialUtilities::HashString(IncludeText);
-			}
-			else
-			{
-				FHLSLMaterialMessages::ShowError(TEXT("Invalid include: %s"), *Include.VirtualPath);
-			}
+			BaseHash += FHLSLMaterialUtilities::HashString(IncludeText);
 		}
+		else
+		{
+			FHLSLMaterialMessages::ShowError(TEXT("Invalid include: %s"), *Include.VirtualPath);
+		}
+	}
+
+	const TArray<FCustomDefine> AdditionalDefines = FHLSLMaterialParser::GetDefines(Text);
+	for (const FCustomDefine& Define : AdditionalDefines)
+	{
+		BaseHash += FHLSLMaterialUtilities::HashString(Define.DefineName);
+		BaseHash += FHLSLMaterialUtilities::HashString(Define.DefineValue);
 	}
 
 	TArray<FHLSLMaterialFunction> Functions;
@@ -140,9 +139,15 @@ void FHLSLMaterialFunctionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary& 
 	FMaterialUpdateContext UpdateContext;
 	for (FHLSLMaterialFunction Function : Functions)
 	{
-		Function.HashedString = Function.GenerateHashedString(IncludesHash);
+		Function.HashedString = Function.GenerateHashedString(BaseHash);
 		
-		const FString Error = FHLSLMaterialFunctionGenerator::GenerateFunction(Library, IncludeFilePaths, Function, UpdateContext);
+		const FString Error = FHLSLMaterialFunctionGenerator::GenerateFunction(
+			Library, 
+			IncludeFilePaths, 
+			AdditionalDefines, 
+			Function, 
+			UpdateContext);
+
 		if (!Error.IsEmpty())
 		{
 			FHLSLMaterialMessages::ShowError(TEXT("Function %s: %s"), *Function.Name, *Error);

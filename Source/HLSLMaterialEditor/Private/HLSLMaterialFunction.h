@@ -15,5 +15,5 @@ struct FHLSLMaterialFunction
 
 	FString HashedString;
 	
-	FString GenerateHashedString(const FString& IncludesHash) const;
+	FString GenerateHashedString(const FString& BaseHash) const;
 };

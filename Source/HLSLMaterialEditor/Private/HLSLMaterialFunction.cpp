@@ -3,18 +3,18 @@
 #include "HLSLMaterialFunction.h"
 #include "HLSLMaterialUtilities.h"
 
-FString FHLSLMaterialFunction::GenerateHashedString(const FString& IncludesHash) const
+FString FHLSLMaterialFunction::GenerateHashedString(const FString& BaseHash) const
 {
 	const FString PluginHashVersion = "1";
 	const FString StringToHash =
+		BaseHash +
 		PluginHashVersion + " " +
 		FString::FromInt(StartLine) + " " +
 		Comment + " " +
 		ReturnType + " " +
 		Name + "(" +
 		FString::Join(Arguments, TEXT(",")) + ")" +
-		Body +
-		IncludesHash;
+		Body;
 
 	return "HLSL Hash: " + FHLSLMaterialUtilities::HashString(StringToHash);
 }

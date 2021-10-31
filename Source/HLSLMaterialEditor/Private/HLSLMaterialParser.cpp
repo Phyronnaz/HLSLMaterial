@@ -222,8 +222,10 @@ FString FHLSLMaterialParser::Parse(
 	return {};
 }
 
-void FHLSLMaterialParser::GetIncludes(const FString& Text, TArray<FInclude>& OutIncludes)
+TArray<FHLSLMaterialParser::FInclude> FHLSLMaterialParser::GetIncludes(const FString& Text)
 {
+	TArray<FInclude> OutIncludes;
+
 	FRegexPattern RegexPattern(R"_((\A|\v)\s*#include "([^"]+)")_");
 	FRegexMatcher RegexMatcher(RegexPattern, Text);
 	while (RegexMatcher.FindNext())
@@ -242,4 +244,20 @@ void FHLSLMaterialParser::GetIncludes(const FString& Text, TArray<FInclude>& Out
 
 		OutIncludes.Add({ VirtualPath, DiskPath });
 	}
+
+	return OutIncludes;
+}
+
+TArray<FCustomDefine> FHLSLMaterialParser::GetDefines(const FString& Text)
+{
+	TArray<FCustomDefine> OutDefines;
+
+	FRegexPattern RegexPattern(R"_((\A|\v)\s*#define (\w*) (.*))_");
+	FRegexMatcher RegexMatcher(RegexPattern, Text);
+	while (RegexMatcher.FindNext())
+	{
+		OutDefines.Add({ RegexMatcher.GetCaptureGroup(2), RegexMatcher.GetCaptureGroup(3) });
+	}
+
+	return OutDefines;
 }

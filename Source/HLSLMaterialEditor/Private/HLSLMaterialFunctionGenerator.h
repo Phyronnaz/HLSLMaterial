@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 
+struct FCustomDefine;
 class IMaterialEditor;
 class UHLSLMaterialFunctionLibrary;
 struct FHLSLMaterialFunction;
@@ -14,6 +15,7 @@ public:
 	static FString GenerateFunction(
 		UHLSLMaterialFunctionLibrary& Library,
 		const TArray<FString>& IncludeFilePaths,
+		const TArray<FCustomDefine>& AdditionalDefines,
 		FHLSLMaterialFunction Function,
 		FMaterialUpdateContext& UpdateContext);
 

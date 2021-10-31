@@ -23,6 +23,7 @@
 FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 	UHLSLMaterialFunctionLibrary& Library,
 	const TArray<FString>& IncludeFilePaths,
+	const TArray<FCustomDefine>& AdditionalDefines,
 	FHLSLMaterialFunction Function,
 	FMaterialUpdateContext& UpdateContext)
 {
@@ -316,7 +317,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 	MaterialExpressionCustom->MaterialExpressionEditorX = 500;
 	MaterialExpressionCustom->MaterialExpressionEditorY = 0;
 	MaterialExpressionCustom->IncludeFilePaths = IncludeFilePaths;
-	MaterialExpressionCustom->AdditionalDefines = Library.AdditionalDefines;
+	MaterialExpressionCustom->AdditionalDefines = AdditionalDefines;
 	MaterialFunction->FunctionExpressions.Add(MaterialExpressionCustom);
 
 	MaterialExpressionCustom->Inputs.Reset();

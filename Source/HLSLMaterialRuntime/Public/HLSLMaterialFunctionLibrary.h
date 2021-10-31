@@ -60,10 +60,6 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Config")
 	bool bAccurateErrors = true;
 	
-	// Gets passed to the AdditionalDefines property in material function custom node
-	UPROPERTY(EditAnywhere, Category = "Config")
-	TArray<FCustomDefine> AdditionalDefines;
-
 	UPROPERTY(EditAnywhere, Category = "Generated")
 	TArray<TSoftObjectPtr<UMaterialFunction>> MaterialFunctions;
 #endif

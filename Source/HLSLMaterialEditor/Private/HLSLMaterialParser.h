@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 
+struct FCustomDefine;
 struct FHLSLMaterialFunction;
 class UHLSLMaterialFunctionLibrary;
 
@@ -20,5 +21,6 @@ public:
 		FString VirtualPath;
 		FString DiskPath;
 	};
-	static void GetIncludes(const FString& Text, TArray<FInclude>& OutIncludes);
+	static TArray<FInclude> GetIncludes(const FString& Text);
+	static TArray<FCustomDefine> GetDefines(const FString& Text);
 };
