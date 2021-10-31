@@ -17,6 +17,7 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialExpressionComment.h"
 #include "Materials/MaterialExpressionCustom.h"
+#include "Materials/MaterialExpressionStaticSwitch.h"
 #include "Materials/MaterialExpressionFunctionInput.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
 
@@ -142,7 +143,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		FName Name;
 		FString ToolTip;
 		EFunctionInputType FunctionType;
-		ECustomMaterialOutputType CustomOutputType;
+		TOptional<ECustomMaterialOutputType> CustomOutputType;
 	};
 	TArray<FPin> Inputs;
 	TArray<FPin> Outputs;
@@ -193,10 +194,14 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			continue;
 		}
 
-		EFunctionInputType FunctionInputType = {};
-		ECustomMaterialOutputType CustomOutputType = {};
+		EFunctionInputType FunctionInputType;
+		TOptional<ECustomMaterialOutputType> CustomOutputType;
 
-		if (Type == "float")
+		if (Type == "bool")
+		{
+			FunctionInputType = FunctionInput_StaticBool;
+		}
+		else if (Type == "float")
 		{
 			FunctionInputType = FunctionInput_Scalar;
 			CustomOutputType = CMOT_Float1;
@@ -239,6 +244,11 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		else
 		{
 			return "Invalid argument type: " + Type;
+		}
+
+		if (bIsOutput && !CustomOutputType.IsSet())
+		{
+			return "Invalid argument type for an output: " + Type;
 		}
 
 		FString ToolTip;
@@ -286,6 +296,15 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		(bIsOutput ? Outputs : Inputs).Add({ *Name, ToolTip, FunctionInputType, CustomOutputType });
 	}
 
+	TArray<int32> StaticBoolParameters;
+	for (int32 Index = 0; Index < Inputs.Num(); Index++)
+	{
+		if (Inputs[Index].FunctionType == FunctionInput_StaticBool)
+		{
+			StaticBoolParameters.Add(Index);
+		}
+	}
+
 	TArray<UMaterialExpressionFunctionInput*> FunctionInputs;
 	for (int32 Index = 0; Index < Inputs.Num(); Index++)
 	{
@@ -298,6 +317,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		{
 			Expression->Id = FGuid::NewGuid();
 		}
+		Expression->bCollapsed = true;
 		Expression->SortPriority = Index;
 		Expression->InputName = Input.Name;
 		Expression->InputType = Input.FunctionType;
@@ -321,42 +341,107 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		{
 			Expression->Id = FGuid::NewGuid();
 		}
+		Expression->bCollapsed = true;
 		Expression->SortPriority = Index;
 		Expression->OutputName = Output.Name;
 		Expression->Description = Output.ToolTip;
-		Expression->MaterialExpressionEditorX = 1000;
+		Expression->MaterialExpressionEditorX = (StaticBoolParameters.Num() + 2) * 500;
 		Expression->MaterialExpressionEditorY = 200 * Index;
 
 		FunctionOutputs.Add(Expression);
 		MaterialFunction->FunctionExpressions.Add(Expression);
 	}
 
-	UMaterialExpressionCustom* MaterialExpressionCustom = NewObject<UMaterialExpressionCustom>(MaterialFunction);
-	MaterialExpressionCustom->MaterialExpressionGuid = FGuid::NewGuid();
-	MaterialExpressionCustom->OutputType = CMOT_Float1;
-	MaterialExpressionCustom->Code = GenerateFunctionCode(Library, Function);
-	MaterialExpressionCustom->MaterialExpressionEditorX = 500;
-	MaterialExpressionCustom->MaterialExpressionEditorY = 0;
-	MaterialExpressionCustom->IncludeFilePaths = IncludeFilePaths;
-	MaterialExpressionCustom->AdditionalDefines = AdditionalDefines;
-	MaterialFunction->FunctionExpressions.Add(MaterialExpressionCustom);
-
-	MaterialExpressionCustom->Inputs.Reset();
-	for (int32 Index = 0; Index < Inputs.Num(); Index++)
+	struct FOutputPin
 	{
-		FCustomInput& Input = MaterialExpressionCustom->Inputs.Add_GetRef({ Inputs[Index].Name });
-		Input.Input.Connect(0, FunctionInputs[Index]);
+		UMaterialExpression* Expression = nullptr;
+		int32 Index = 0;
+	};
+
+	TArray<TArray<FOutputPin>> AllOutputPins;
+	for (int32 Width = 0; Width < 1 << StaticBoolParameters.Num(); Width++)
+	{
+		FString BoolDeclarations;
+		for (int32 Index = 0; Index < StaticBoolParameters.Num(); Index++)
+		{
+			bool bValue = Width & (1 << Index);
+			// Invert the value, as switches take True as first pin
+			bValue = !bValue;
+			BoolDeclarations += "const bool " + Inputs[Index].Name.ToString() + " = " + (bValue ? "true" : "false") + ";\n";
+		}
+
+		UMaterialExpressionCustom* MaterialExpressionCustom = NewObject<UMaterialExpressionCustom>(MaterialFunction);
+		MaterialExpressionCustom->MaterialExpressionGuid = FGuid::NewGuid();
+		MaterialExpressionCustom->bCollapsed = true;
+		MaterialExpressionCustom->OutputType = CMOT_Float1;
+		MaterialExpressionCustom->Code = GenerateFunctionCode(Library, Function, BoolDeclarations);
+		MaterialExpressionCustom->MaterialExpressionEditorX = 500;
+		MaterialExpressionCustom->MaterialExpressionEditorY = 200 * Width;
+		MaterialExpressionCustom->IncludeFilePaths = IncludeFilePaths;
+		MaterialExpressionCustom->AdditionalDefines = AdditionalDefines;
+		MaterialFunction->FunctionExpressions.Add(MaterialExpressionCustom);
+
+		MaterialExpressionCustom->Inputs.Reset();
+		for (int32 Index = 0; Index < Inputs.Num(); Index++)
+		{
+			FPin& Input = Inputs[Index];
+			if (Input.FunctionType == FunctionInput_StaticBool)
+			{
+				continue;
+			}
+
+			FCustomInput& CustomInput = MaterialExpressionCustom->Inputs.Emplace_GetRef();
+			CustomInput.InputName = Input.Name;
+			CustomInput.Input.Connect(0, FunctionInputs[Index]);
+		}
+		for (int32 Index = 0; Index < Outputs.Num(); Index++)
+		{
+			const FPin& Output = Outputs[Index];
+			MaterialExpressionCustom->AdditionalOutputs.Add({ Output.Name, Output.CustomOutputType.GetValue() });
+		}
+
+		MaterialExpressionCustom->PostEditChange();
+
+		TArray<FOutputPin>& OutputPins = AllOutputPins.Emplace_GetRef();
+		for (int32 Index = 0; Index < Outputs.Num(); Index++)
+		{
+			// + 1 as default output pin is result
+			OutputPins.Add({ MaterialExpressionCustom, Index + 1 });
+		}
 	}
+
+	for (int32 Layer = 0; Layer < StaticBoolParameters.Num(); Layer++)
+	{
+		const TArray<TArray<FOutputPin>> PreviousAllOutputPins = MoveTemp(AllOutputPins);
+		
+		for (int32 Width = 0; Width < 1 << (StaticBoolParameters.Num() - Layer - 1); Width++)
+		{
+			TArray<FOutputPin>& OutputPins = AllOutputPins.Emplace_GetRef();
+			for (int32 Index = 0; Index < Outputs.Num(); Index++)
+			{
+				UMaterialExpressionStaticSwitch* StaticSwitch = NewObject<UMaterialExpressionStaticSwitch>(MaterialFunction);
+				StaticSwitch->MaterialExpressionGuid = FGuid::NewGuid();
+				StaticSwitch->MaterialExpressionEditorX = (Layer + 2) * 500;
+				StaticSwitch->MaterialExpressionEditorY = 200 * Width;
+				MaterialFunction->FunctionExpressions.Add(StaticSwitch);
+
+				const FOutputPin& OutputPinA = PreviousAllOutputPins[2 * Width + 0][Index];
+				const FOutputPin& OutputPinB = PreviousAllOutputPins[2 * Width + 1][Index];
+
+				StaticSwitch->A.Connect(OutputPinA.Index, OutputPinA.Expression);
+				StaticSwitch->B.Connect(OutputPinB.Index, OutputPinB.Expression);
+				StaticSwitch->Value.Connect(0, FunctionInputs[StaticBoolParameters[Layer]]);
+
+				OutputPins.Add({ StaticSwitch, 0 });
+			}
+		}
+	}
+
+	ensure(AllOutputPins.Num() == 1);
 	for (int32 Index = 0; Index < Outputs.Num(); Index++)
 	{
-		MaterialExpressionCustom->AdditionalOutputs.Add({ Outputs[Index].Name, Outputs[Index].CustomOutputType });
-	}
-
-	MaterialExpressionCustom->PostEditChange();
-	for (int32 Index = 0; Index < Outputs.Num(); Index++)
-	{
-		// + 1 as default output pin is result
-		FunctionOutputs[Index]->GetInput(0)->Connect(Index + 1, MaterialExpressionCustom);
+		const FOutputPin& Pin = AllOutputPins[0][Index];
+		FunctionOutputs[Index]->GetInput(0)->Connect(Pin.Index, Pin.Expression);
 	}
 
 	{
@@ -412,7 +497,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-FString FHLSLMaterialFunctionGenerator::GenerateFunctionCode(const UHLSLMaterialFunctionLibrary& Library, const FHLSLMaterialFunction& Function)
+FString FHLSLMaterialFunctionGenerator::GenerateFunctionCode(const UHLSLMaterialFunctionLibrary& Library, const FHLSLMaterialFunction& Function, const FString& BoolDeclarations)
 {
 	FString Code = Function.Body.Replace(TEXT("return"), TEXT("return 0.f"));
 
@@ -429,7 +514,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunctionCode(const UHLSLMaterial
 			*Library.GetPathName());
 	}
 
-	return FString::Printf(TEXT("// START %s\n\n%s\n\n// END %s\n\nreturn 0.f;\n//%s\n"), *Function.Name, *Code, *Function.Name, *Function.HashedString);
+	return FString::Printf(TEXT("// START %s\n\n%s\n%s\n\n// END %s\n\nreturn 0.f;\n//%s\n"), *Function.Name, *BoolDeclarations, *Code, *Function.Name, *Function.HashedString);
 }
 
 IMaterialEditor* FHLSLMaterialFunctionGenerator::FindMaterialEditorForAsset(UObject* InAsset)
