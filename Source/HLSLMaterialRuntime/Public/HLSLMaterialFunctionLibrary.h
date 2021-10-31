@@ -72,13 +72,20 @@ public:
 	//~ End UObject Interface
 
 private:
-	FString WatchedDirectory;
-	FDelegateHandle WatcherDelegate;
+	struct FWatched
+	{
+		FString Directory;
+		FDelegateHandle Handle;
+	};
+	FWatched Watched;
+	TArray<FWatched> WatchedIncludes;
 
-	void BindWatcher();
-	void UnbindWatcher();
+	void BindWatchers();
+	void UnbindWatchers();
+	void UnbindIncludeWatchers();
 
 	void OnDirectoryChanged(const TArray<FFileChangeData>& FileChanges);
+	void OnIncludeDirectoryChanged(const TArray<FFileChangeData>& FileChanges);
 
 	static void MakeRelativePath(FString& Path);
 #endif

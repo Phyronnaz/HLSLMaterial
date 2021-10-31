@@ -42,7 +42,9 @@ private:
 		TArray<FString> Arguments;
 		FString Body;
 
-		FString GetHashedString() const;
+		FString HashedString;
+		
+		FString GenerateHashedString(const FString& IncludeBodies) const;
 	};
 	static FString GenerateFunction(UHLSLMaterialFunctionLibrary& Library, FFunction Function, FMaterialUpdateContext& UpdateContext);
 	static FString GenerateFunctionCode(const UHLSLMaterialFunctionLibrary& Library, const FFunction& Function);
