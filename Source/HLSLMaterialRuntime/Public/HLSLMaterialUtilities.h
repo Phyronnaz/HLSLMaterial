@@ -8,6 +8,8 @@ struct HLSLMATERIALRUNTIME_API FHLSLMaterialUtilities
 {
 	// Delay until next fire; 0 means "next frame"
 	static void DelayedCall(TFunction<void()> Call, float Delay = 0);
+
+	static FString HashString(const FString& String);
 };
 
 HLSLMATERIALRUNTIME_API DECLARE_LOG_CATEGORY_EXTERN(LogHLSLMaterial, Log, All);

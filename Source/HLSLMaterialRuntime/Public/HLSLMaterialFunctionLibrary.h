@@ -26,7 +26,7 @@ public:
 private:
 	static IHLSLMaterialEditorInterface* StaticInterface;
 
-	friend class FVoxelMaterialFunctionLibraryEditor;
+	friend class FHLSLMaterialFunctionLibraryEditor;
 };
 #endif
 

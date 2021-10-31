@@ -3,27 +3,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Factories/Factory.h"
-#include "HLSLMaterialFunctionLibraryEditor.generated.h"
 
-class IMaterialEditor;
-class FMessageLogListingViewModel;
 class UHLSLMaterialFunctionLibrary;
 
-UCLASS()
-class UHLSLMaterialFunctionLibraryFactory : public UFactory
-{
-	GENERATED_BODY()
-
-public:
-	UHLSLMaterialFunctionLibraryFactory();
-
-	//~ Begin UFactory Interface
-	virtual UObject* FactoryCreateNew(UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn) override;
-	//~ End UFactory Interface
-};
-
-class FVoxelMaterialFunctionLibraryEditor
+class FHLSLMaterialFunctionLibraryEditor
 {
 public:
 	static void Register();
@@ -32,55 +15,6 @@ public:
 	static void Generate(UHLSLMaterialFunctionLibrary& Library);
 
 private:
-	static constexpr const TCHAR* UniqueMessagePrefix = TEXT("[HLSLMaterial]");
-	static constexpr const TCHAR* UniqueMessageSuffix = TEXT("[/HLSLMaterial]");
-
-	static FString HashString(const FString& String);
-
-	struct FFunction
-	{
-		int32 StartLine = 0;
-		FString Comment;
-		FString ReturnType;
-		FString Name;
-		TArray<FString> Arguments;
-		FString Body;
-
-		FString HashedString;
-		
-		FString GenerateHashedString(const FString& IncludesHash) const;
-	};
-
-	static bool ParseFunctions(
-		const UHLSLMaterialFunctionLibrary& Library, 
-		FString Text, 
-		TArray<FFunction>& OutFunctions);
-
-	static FString GenerateFunction(
-		UHLSLMaterialFunctionLibrary& Library,
-		const TArray<FString>& IncludeFilePaths,
-		FFunction Function,
-		FMaterialUpdateContext& UpdateContext);
-
-	static FString GenerateFunctionCode(const UHLSLMaterialFunctionLibrary& Library, const FFunction& Function);
-
-private:
-	static void HookMessageLogHack(IMaterialEditor& MaterialEditor);
-	static void ReplaceMessages(FMessageLogListingViewModel& ViewModel);
-	
-private:
-	static IMaterialEditor* FindMaterialEditorForAsset(UObject* InAsset);
-	static UObject* CreateAsset(FString AssetName, FString FolderPath, UClass* Class, FString Suffix = {});
-
-	template<typename T>
-	static T* CreateAsset(FString AssetName, FString FolderPath, UClass* Class = nullptr, FString Suffix = {})
-	{
-		if (!Class)
-		{
-			Class = T::StaticClass();
-		}
-		return CastChecked<T>(CreateAsset(AssetName, FolderPath, Class, Suffix), ECastCheckedType::NullAllowed);
-	}
 	static bool TryLoadFileToString(FString& Text, const FString& FullPath);
 
 	struct FInclude
@@ -91,17 +25,12 @@ private:
 	static void GetIncludes(const FString& Text, TArray<FInclude>& OutIncludes);
 	
 private:
-	enum class ESeverity
-	{
-		Info,
-		Error
-	};
-	static void ShowMessageImpl(ESeverity Severity, FString Message);
+	static void ShowErrorImpl(FString Message);
 
 	template <typename FmtType, typename... Types>
-	static void ShowMessage(ESeverity Severity, const FmtType& Fmt, Types... Args)
+	static void ShowError(const FmtType& Fmt, Types... Args)
 	{
-		ShowMessageImpl(Severity, FString::Printf(Fmt, Args...));
+		ShowErrorImpl(FString::Printf(Fmt, Args...));
 	}
 
 	struct FLibraryScope

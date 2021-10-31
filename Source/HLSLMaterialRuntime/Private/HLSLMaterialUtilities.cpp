@@ -15,3 +15,12 @@ void FHLSLMaterialUtilities::DelayedCall(TFunction<void()> Call, float Delay)
 		return false;
 	}), Delay);
 }
+
+FString FHLSLMaterialUtilities::HashString(const FString& String)
+{
+	uint32 Hash[5];
+	const TArray<TCHAR>& Array = String.GetCharArray();
+	FSHA1::HashBuffer(Array.GetData(), Array.Num() * Array.GetTypeSize(), reinterpret_cast<uint8*>(Hash));
+
+	return FGuid(Hash[0] ^ Hash[4], Hash[1], Hash[2], Hash[3]).ToString();
+}
