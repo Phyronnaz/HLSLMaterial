@@ -16,15 +16,15 @@ FString UHLSLMaterialFunctionLibrary::GetFilePath() const
 FString UHLSLMaterialFunctionLibrary::GetFilePath(const FString& InFilePath)
 {
 	FString FullPath;
-	
-	if (FPackageName::TryConvertLongPackageNameToFilename(InFilePath, FullPath))
+
+	// Try to convert from /Game/Smthg to the full filename
+	if (!FPackageName::TryConvertLongPackageNameToFilename(InFilePath, FullPath))
 	{
-		return FullPath;
+		FullPath = InFilePath;
 	}
-	
-	FullPath = FPaths::ConvertRelativePathToFull(InFilePath);
-	
-	return FullPath;
+
+	// Always return the full path
+	return FPaths::ConvertRelativePathToFull(InFilePath);
 }
 
 void UHLSLMaterialFunctionLibrary::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
@@ -55,8 +55,8 @@ void UHLSLMaterialFunctionLibrary::PostEditChangeProperty(FPropertyChangedEvent&
 	FString NewPath = File.FilePath;
 	MakeRelativePath(NewPath);
 
-	if (FPaths::ConvertRelativePathToFull(GetFilePath(File.FilePath)) ==
-		FPaths::ConvertRelativePathToFull(GetFilePath(NewPath)))
+	if (GetFilePath(File.FilePath) ==
+		GetFilePath(NewPath))
 	{
 		// Conversion is safe
 		File.FilePath = NewPath;
