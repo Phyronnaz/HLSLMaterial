@@ -151,6 +151,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 	{
 		return "Return type needs to be void";
 	}
+
 	for (FString Argument : Function.Arguments)
 	{
 		Argument.TrimStartAndEndInline();
@@ -172,6 +173,26 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 
 		const FString Type = TypeAndName[0];
 		const FString Name = TypeAndName[1];
+
+		if ((Type == "FMaterialPixelParameters" || Type == "FMaterialVertexParameters") &&
+			Name == "Parameters")
+		{
+			// Allow passing Parameters explicitly
+			// The Custom node will handle passing them
+			continue;
+		}
+		if (Type == "SamplerState")
+		{
+			FString TextureName = Name;
+			if (!TextureName.RemoveFromEnd(TEXT("Sampler")))
+			{
+				return "Invalid sampler parameter: " + Name + ". Sampler parameters should be named [TextureParameterName]Sampler";
+			}
+
+			// The Custom node will add samplers
+			continue;
+		}
+
 		EFunctionInputType FunctionInputType = {};
 		ECustomMaterialOutputType CustomOutputType = {};
 
