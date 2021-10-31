@@ -11,6 +11,11 @@ class HLSLMATERIALEDITOR_API UHLSLMaterialSettings : public UObject
     GENERATED_BODY()
 
 public:
+	UPROPERTY(VisibleAnywhere, Category = "Config")
+		FString Help =
+		"For Visual Studio Code, use \n%localappdata%/Programs/Microsoft VS Code/Code.exe\n-g \"%FILE%:%LINE%:%CHAR%\"\n\n"
+		"For Rider, use \nC:/Program Files/JetBrains/Rider for Unreal Engine 2021.2/bin/rider64.exe\n--line %LINE% --column %CHAR% \"%FILE%\"";
+
 	// The exe to use to open HLSL files
 	UPROPERTY(Config, EditAnywhere, Category = "Config", meta = (DisplayName = "HLSL Editor"))
 	FFilePath HLSLEditor = { "%localappdata%/Programs/Microsoft VS Code/Code.exe" };

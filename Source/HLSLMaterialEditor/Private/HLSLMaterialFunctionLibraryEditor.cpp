@@ -83,21 +83,21 @@ void FVoxelMaterialExpressionLibraryEditor::Register()
 	});
 }
 
-bool FVoxelMaterialExpressionLibraryEditor::TryLoadFileToString(FString& Text, const TCHAR* FullPath, const TCHAR* LibraryName)
+bool FVoxelMaterialExpressionLibraryEditor::TryLoadFileToString(FString& Text, const FString& FullPath, const FString& LibraryName)
 {
 	if (!FPaths::FileExists(FullPath))
 	{
-		ShowMessage(ESeverity::Error, FString::Printf(TEXT("%s: invalid path %s"), LibraryName, FullPath));
+		ShowMessage(ESeverity::Error, TEXT("%s: invalid path %s"), *LibraryName, *FullPath);
 		return false;
 	}
 
-	if (!FFileHelper::LoadFileToString(Text, FullPath))
+	if (!FFileHelper::LoadFileToString(Text, *FullPath))
 	{
 		FPlatformProcess::Sleep(0.1f);
 
-		if (!FFileHelper::LoadFileToString(Text, FullPath))
+		if (!FFileHelper::LoadFileToString(Text, *FullPath))
 		{
-			ShowMessage(ESeverity::Error, FString::Printf(TEXT("%s: failed to read %s"), LibraryName, FullPath));
+			ShowMessage(ESeverity::Error, TEXT("%s: failed to read %s"), *LibraryName, *FullPath);
 			return false;
 		}
 	}
@@ -108,34 +108,35 @@ bool FVoxelMaterialExpressionLibraryEditor::TryLoadFileToString(FString& Text, c
 void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary& Library)
 {
 	const FString FullPath = Library.GetFilePath();
-	const FString LibraryName = *Library.GetName();
+	const FString LibraryName = Library.GetName();
 	
 	FString Text;
-	if (!TryLoadFileToString(Text, *FullPath, *LibraryName))
+	if (!TryLoadFileToString(Text, FullPath, LibraryName))
 	{
 		return;
 	}
 
-	FString IncludeBodies;
+	FString IncludesHash;
 	for (const FString& IncludeFilePath : Library.IncludeFilePaths)
 	{
-		const FString IncludePath = FPaths::GetPath(IncludeFilePath);
-		const FString* IncludeMappedPath = AllShaderSourceDirectoryMappings().Find(IncludePath);
-
-		if (!IncludeMappedPath)
+		if (IncludeFilePath.IsEmpty())
 		{
 			continue;
 		}
-
-		const FString IncludeMappedFilePath = *IncludeMappedPath / FPaths::GetCleanFilename(IncludeFilePath);
+		const FString MappedInclude = GetShaderSourceFilePath(IncludeFilePath);
+		if (MappedInclude.IsEmpty())
+		{
+			ShowMessage(ESeverity::Error, TEXT("%s: failed to map include %s"), *LibraryName, *IncludeFilePath);
+			continue;
+		}
 
 		FString IncludeText;
-		if (!TryLoadFileToString(IncludeText, *IncludeMappedFilePath, *LibraryName))
+		if (!TryLoadFileToString(IncludeText, MappedInclude, LibraryName))
 		{
 			continue;
 		}
 
-		IncludeBodies += IncludeText + "\n";
+		IncludesHash += HashString(IncludeText);
 	}
 
 	TArray<FFunction> Functions;
@@ -280,7 +281,7 @@ void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrar
 
 				if (Char != TEXT('{'))
 				{
-					ShowMessage(ESeverity::Error, FString::Printf(TEXT("Invalid function body for %s in %s: missing {"), *Functions.Last().Name, *FullPath));
+					ShowMessage(ESeverity::Error, TEXT("Invalid function body for %s in %s: missing {"), *Functions.Last().Name, *FullPath);
 					return;
 				}
 
@@ -313,7 +314,7 @@ void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrar
 				}
 				if (ScopeDepth < 0)
 				{
-					ShowMessage(ESeverity::Error, FString::Printf(TEXT("Invalid function body for %s in %s: too many }"), *Functions.Last().Name, *FullPath));
+					ShowMessage(ESeverity::Error, TEXT("Invalid function body for %s in %s: too many }"), *Functions.Last().Name, *FullPath);
 					return;
 				}
 
@@ -348,7 +349,7 @@ void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrar
 
 		if (Scope != EScope::Global)
 		{
-			ShowMessage(ESeverity::Error, FString::Printf(TEXT("Parsing error in %s"), *FullPath));
+			ShowMessage(ESeverity::Error, TEXT("Parsing error in %s"), *FullPath);
 			return;
 		}
 	}
@@ -361,17 +362,26 @@ void FVoxelMaterialExpressionLibraryEditor::Generate(UHLSLMaterialFunctionLibrar
 	FMaterialUpdateContext UpdateContext;
 	for (FFunction Function : Functions)
 	{
-		Function.HashedString = Function.GenerateHashedString(IncludeBodies);
+		Function.HashedString = Function.GenerateHashedString(IncludesHash);
 		
 		const FString Error = GenerateFunction(Library, Function, UpdateContext);
 		if (!Error.IsEmpty())
 		{
-			ShowMessage(ESeverity::Error, FString::Printf(TEXT("Error in %s: Function %s: %s"), *FullPath, *Function.Name, *Error));
+			ShowMessage(ESeverity::Error, TEXT("Error in %s: Function %s: %s"), *FullPath, *Function.Name, *Error);
 		}
 	}
 }
 
-FString FVoxelMaterialExpressionLibraryEditor::FFunction::GenerateHashedString(const FString& IncludeBodies) const
+FString FVoxelMaterialExpressionLibraryEditor::HashString(const FString& String)
+{
+	uint32 Hash[5];
+	const TArray<TCHAR>& Array = String.GetCharArray();
+	FSHA1::HashBuffer(Array.GetData(), Array.Num() * Array.GetTypeSize(), reinterpret_cast<uint8*>(Hash));
+
+	return FGuid(Hash[0] ^ Hash[4], Hash[1], Hash[2], Hash[3]).ToString();
+}
+
+FString FVoxelMaterialExpressionLibraryEditor::FFunction::GenerateHashedString(const FString& IncludesHash) const
 {
 	const FString PluginHashVersion = "1";
 	const FString StringToHash =
@@ -382,13 +392,9 @@ FString FVoxelMaterialExpressionLibraryEditor::FFunction::GenerateHashedString(c
 		Name + "(" +
 		FString::Join(Arguments, TEXT(",")) + ")" +
 		Body +
-		IncludeBodies;
+		IncludesHash;
 
-	uint32 Hash[5];
-	const TArray<TCHAR>& Array = StringToHash.GetCharArray();
-	FSHA1::HashBuffer(Array.GetData(), Array.Num() * Array.GetTypeSize(), reinterpret_cast<uint8*>(Hash));
-
-	return "HLSL Hash: " + FGuid(Hash[0] ^ Hash[4], Hash[1], Hash[2], Hash[3]).ToString();
+	return "HLSL Hash: " + HashString(StringToHash);
 }
 
 FString FVoxelMaterialExpressionLibraryEditor::GenerateFunction(UHLSLMaterialFunctionLibrary& Library, FFunction Function, FMaterialUpdateContext& UpdateContext)
@@ -738,7 +744,7 @@ FString FVoxelMaterialExpressionLibraryEditor::GenerateFunction(UHLSLMaterialFun
 		MaterialEditor->NotifyExternalMaterialChange();
 	}
 	
-	ShowMessage(ESeverity::Info, FString::Printf(TEXT("%s updated"), *Function.Name));
+	ShowMessage(ESeverity::Info, TEXT("%s updated"), *Function.Name);
 	return {};
 }
 
@@ -804,37 +810,85 @@ void FVoxelMaterialExpressionLibraryEditor::ReplaceMessages(FMessageLogListingVi
 				NewTokens.Add(Token);
 				continue;
 			}
-
-			const FString Error = Token->ToText().ToString();
-			FString ErrorPrefix;
-			FString ActualError;
-			if (!Error.Split(UniqueMessagePrefix, &ErrorPrefix, &ActualError))
-			{
-				NewTokens.Add(Token);
-				continue;
-			}
-
+			
 			FString Path;
+			FString FullPath;
+			FString ErrorPrefix;
 			FString ErrorSuffix;
-			if (!ensure(ActualError.Split(UniqueMessageSuffix, &Path, &ErrorSuffix)))
+			{
+				const FString Error = Token->ToText().ToString();
+
+				// Try to parse error with [HLSLMaterial] markup
+				FString ActualError;
+				if (Error.Split(UniqueMessagePrefix, &ErrorPrefix, &ActualError))
+				{
+					if (!ensure(ActualError.Split(UniqueMessageSuffix, &Path, &ErrorSuffix)))
+					{
+						NewTokens.Add(Token);
+						continue;
+					}
+
+					FullPath = UHLSLMaterialFunctionLibrary::GetFilePath(Path);
+				}
+				else
+				{
+					// Try to parse a shader file path
+
+					// [FeatureLevel] /Path(line info): error
+					FRegexPattern RegexPattern("(\\[.*\\] )(\\/.*)(\\(.*\\): .*)");
+					FRegexMatcher RegexMatcher(RegexPattern, Error);
+					if (!RegexMatcher.FindNext())
+					{
+						NewTokens.Add(Token);
+						continue;
+					}
+
+					ErrorPrefix = RegexMatcher.GetCaptureGroup(1);
+					Path = RegexMatcher.GetCaptureGroup(2);
+					ErrorSuffix = RegexMatcher.GetCaptureGroup(3);
+
+					FullPath = GetShaderSourceFilePath(Path);
+				}
+			}
+			
+			FString LineNumber;
+			FString CharStart;
+			FString CharEnd;
+
+			{
+				// Error prefix (line,char) error suffix
+				// Error prefix (line,char-char) error suffix
+				FRegexPattern RegexPattern("\\(([0-9]*),([0-9]*)(-([0-9]*))?\\)(.*)");
+				FRegexMatcher RegexMatcher(RegexPattern, ErrorSuffix);
+				if (RegexMatcher.FindNext())
+				{
+					LineNumber = RegexMatcher.GetCaptureGroup(1);
+					CharStart = RegexMatcher.GetCaptureGroup(2);
+					CharEnd = RegexMatcher.GetCaptureGroup(4);
+					ErrorSuffix = RegexMatcher.GetCaptureGroup(5);
+				}
+			}
+
+			if (LineNumber.IsEmpty())
+			{
+				// Error prefix (line): error suffix
+				// Error prefix (line): (char) error suffix
+				FRegexPattern RegexPattern("\\(([0-9]*)\\): (\\(([0-9]*)\\))?(.*)");
+				FRegexMatcher RegexMatcher(RegexPattern, ErrorSuffix);
+				if (RegexMatcher.FindNext())
+				{
+					LineNumber = RegexMatcher.GetCaptureGroup(1);
+					CharStart = RegexMatcher.GetCaptureGroup(3);
+					ErrorSuffix = RegexMatcher.GetCaptureGroup(4);
+				}
+			}
+
+			if (!ensure(!LineNumber.IsEmpty()))
 			{
 				NewTokens.Add(Token);
 				continue;
 			}
-
-			FRegexPattern RegexPattern("\\(([0-9]*),([0-9]*)(-([0-9]*))?\\)(.*)");
-			FRegexMatcher RegexMatcher(RegexPattern, ErrorSuffix);
-			if (!ensure(RegexMatcher.FindNext()))
-			{
-				NewTokens.Add(Token);
-				continue;
-			}
-
-			const FString LineNumber = RegexMatcher.GetCaptureGroup(1);
-			const FString CharStart = RegexMatcher.GetCaptureGroup(2);
-			const FString CharEnd = RegexMatcher.GetCaptureGroup(4);
-			ErrorSuffix = RegexMatcher.GetCaptureGroup(5);
-
+			
 			FString DisplayText = FString::Printf(TEXT("%s:%s:%s"), *Path, *LineNumber, *CharStart);
 			if (!CharEnd.IsEmpty())
 			{
@@ -844,7 +898,7 @@ void FVoxelMaterialExpressionLibraryEditor::ReplaceMessages(FMessageLogListingVi
 			NewTokens.Add(FTextToken::Create(FText::FromString(ErrorPrefix)));
 			NewTokens.Add(FActionToken::Create(
 				FText::FromString(DisplayText),
-				INVTEXT("Open the file"),
+				FText::Format(INVTEXT("Open {0}"), FText::FromString(FullPath)),
 				FOnActionTokenExecuted::CreateLambda([=]
 				{
 					FString ExePath = GetDefault<UHLSLMaterialSettings>()->HLSLEditor.FilePath;
@@ -889,7 +943,6 @@ void FVoxelMaterialExpressionLibraryEditor::ReplaceMessages(FMessageLogListingVi
 						}
 					}
 
-					const FString FullPath = UHLSLMaterialFunctionLibrary::GetFilePath(Path);
 					FString Args = GetDefault<UHLSLMaterialSettings>()->HLSLEditorArgs;
 					Args.ReplaceInline(TEXT("%FILE%"), *FullPath);
 					Args.ReplaceInline(TEXT("%LINE%"), *LineNumber);
@@ -946,9 +999,9 @@ UObject* FVoxelMaterialExpressionLibraryEditor::CreateAsset(FString AssetName, F
 
 		if (NewAssetName != AssetName)
 		{
-			ShowMessage(ESeverity::Error, FString::Printf(
+			ShowMessage(ESeverity::Error,
 				TEXT("Asset %s already exists! Add it back to the HLSL library MaterialFunctions if you want it to be updated"),
-				*PackageName));
+				*PackageName);
 			return nullptr;
 		}
 	}
@@ -976,7 +1029,7 @@ UObject* FVoxelMaterialExpressionLibraryEditor::CreateAsset(FString AssetName, F
 	return Object;
 }
 
-void FVoxelMaterialExpressionLibraryEditor::ShowMessage(ESeverity Severity, FString Message)
+void FVoxelMaterialExpressionLibraryEditor::ShowMessageImpl(ESeverity Severity, FString Message)
 {
 	FNotificationInfo Info(FText::FromString(Message));
 	if (Severity == ESeverity::Info)

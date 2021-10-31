@@ -9,6 +9,7 @@
 
 struct FFileChangeData;
 class UMaterialFunction;
+class FHLSLMaterialFileWatcher;
 
 UCLASS()
 class HLSLMATERIALRUNTIME_API UHLSLMaterialFunctionLibrary : public UObject
@@ -72,19 +73,9 @@ public:
 	//~ End UObject Interface
 
 private:
-	struct FWatched
-	{
-		FString Directory;
-		FDelegateHandle Handle;
-	};
-	FWatched Watched;
-	TArray<FWatched> WatchedIncludes;
+	TSharedPtr<FHLSLMaterialFileWatcher> Watcher;
 
-	void BindWatchers();
-	void UnbindWatchers();
-
-	void OnDirectoryChanged(const TArray<FFileChangeData>& FileChanges);
-	void OnIncludeDirectoryChanged(const TArray<FFileChangeData>& FileChanges);
+	void CreateWatcher();
 
 	static void MakeRelativePath(FString& Path);
 #endif
