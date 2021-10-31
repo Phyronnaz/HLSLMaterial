@@ -82,7 +82,6 @@ private:
 
 	void BindWatchers();
 	void UnbindWatchers();
-	void UnbindIncludeWatchers();
 
 	void OnDirectoryChanged(const TArray<FFileChangeData>& FileChanges);
 	void OnIncludeDirectoryChanged(const TArray<FFileChangeData>& FileChanges);

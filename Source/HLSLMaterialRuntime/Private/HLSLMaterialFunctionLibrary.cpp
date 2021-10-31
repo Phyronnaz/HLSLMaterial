@@ -3,6 +3,7 @@
 #include "HLSLMaterialFunctionLibrary.h"
 
 #if WITH_EDITOR
+#include "HAL/FileManagerGeneric.h"
 #include "DirectoryWatcherModule.h"
 #include "IDirectoryWatcher.h"
 
@@ -129,19 +130,14 @@ void UHLSLMaterialFunctionLibrary::BindWatchers()
 		Watched.Handle,
 		IDirectoryWatcher::FDirectoryChanged::CreateUObject(this, &UHLSLMaterialFunctionLibrary::OnDirectoryChanged));
 
-	// Make sure that indices in IncludeFilePaths match WatchedIncludes
-	if (IncludeFilePaths.Num() != WatchedIncludes.Num())
+	TSet<FString> UniqueIncludeMappedPaths;
+	for (const FString& IncludeFilePath : IncludeFilePaths)
 	{
-		UnbindIncludeWatchers();
-		WatchedIncludes.Reset(IncludeFilePaths.Num());
-		WatchedIncludes.AddDefaulted(IncludeFilePaths.Num());
-	}
-	
-	for (auto IncludeFilePathIt = IncludeFilePaths.CreateConstIterator(); IncludeFilePathIt; ++IncludeFilePathIt)
-	{
-		const FString& IncludeFilePath = *IncludeFilePathIt;
-		const int32 IncludeFilePathIdx = IncludeFilePathIt.GetIndex();
-
+		if (IncludeFilePath.IsEmpty())
+		{
+			continue;
+		}
+		
 		const FString IncludePath = FPaths::GetPath(IncludeFilePath);
 
 		const FString* IncludeMappedPath = AllShaderSourceDirectoryMappings().Find(IncludePath);
@@ -151,34 +147,33 @@ void UHLSLMaterialFunctionLibrary::BindWatchers()
 			continue;
 		}
 
-		FWatched& WatchedInclude = WatchedIncludes[IncludeFilePathIdx];
+		UniqueIncludeMappedPaths.Add(*IncludeMappedPath);
+	}
 
-		if (WatchedInclude.Directory != *IncludeMappedPath)
-		{
-			// Order or one of includes changed
-			UnbindWatcher(WatchedInclude.Directory, WatchedInclude.Handle);
-		}
+	ensure(WatchedIncludes.Num() == 0);
+
+	for (const FString& IncludeMappedPath : UniqueIncludeMappedPaths)
+	{
+		FWatched& WatchedInclude = WatchedIncludes.AddDefaulted_GetRef();
 
 		BindWatcher(
 			*IncludeMappedPath,
 			WatchedInclude.Directory,
 			WatchedInclude.Handle,
-			IDirectoryWatcher::FDirectoryChanged::CreateUObject(this, &UHLSLMaterialFunctionLibrary::OnIncludeDirectoryChanged));
+			IDirectoryWatcher::FDirectoryChanged::CreateUObject(
+				this, &UHLSLMaterialFunctionLibrary::OnIncludeDirectoryChanged));
 	}
 }
 
 void UHLSLMaterialFunctionLibrary::UnbindWatchers()
 {
 	UnbindWatcher(Watched.Directory, Watched.Handle);
-	UnbindIncludeWatchers();	
-}
-
-void UHLSLMaterialFunctionLibrary::UnbindIncludeWatchers()
-{
+	
 	for (FWatched& WatchedInclude : WatchedIncludes)
 	{
 		UnbindWatcher(WatchedInclude.Directory, WatchedInclude.Handle);
 	}
+	WatchedIncludes.Reset();
 }
 
 void UHLSLMaterialFunctionLibrary::OnDirectoryChanged(const TArray<FFileChangeData>& FileChanges)
@@ -196,7 +191,29 @@ void UHLSLMaterialFunctionLibrary::OnDirectoryChanged(const TArray<FFileChangeDa
 
 void UHLSLMaterialFunctionLibrary::OnIncludeDirectoryChanged(const TArray<FFileChangeData>& FileChanges)
 {
-	Update();
+	for (const FFileChangeData& FileChange : FileChanges)
+	{
+		FString FileChangePath = FPaths::GetPath(FileChange.Filename);
+		
+		// Paths in ShaderSourceDirectoryMapping are relative
+		FileChangePath = FFileManagerGeneric::DefaultConvertToRelativePath(*FileChangePath);
+		
+		const FString* MappedFileChangePath = AllShaderSourceDirectoryMappings().FindKey(FileChangePath);
+
+		if (!MappedFileChangePath)
+		{
+			continue;
+		}
+
+		const FString FileChangeFilename = FPaths::GetCleanFilename(FileChange.Filename);
+		const FString MappedFileChangeFilePath = *MappedFileChangePath  / *FileChangeFilename;
+
+		if (IncludeFilePaths.Contains(MappedFileChangeFilePath))
+		{
+			Update();
+			break;
+		}
+	}
 }
 
 void UHLSLMaterialFunctionLibrary::MakeRelativePath(FString& Path)
