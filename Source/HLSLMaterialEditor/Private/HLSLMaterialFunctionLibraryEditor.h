@@ -27,6 +27,8 @@ class FVoxelMaterialFunctionLibraryEditor
 {
 public:
 	static void Register();
+
+	static TSharedRef<FVirtualDestructor> CreateWatcher(UHLSLMaterialFunctionLibrary& Library);
 	static void Generate(UHLSLMaterialFunctionLibrary& Library);
 
 private:
@@ -48,8 +50,15 @@ private:
 		
 		FString GenerateHashedString(const FString& IncludesHash) const;
 	};
-	static FString GenerateFunction(UHLSLMaterialFunctionLibrary& Library, FFunction Function, FMaterialUpdateContext& UpdateContext);
+	static FString GenerateFunction(
+		UHLSLMaterialFunctionLibrary& Library,
+		const TArray<FString>& IncludeFilePaths,
+		FFunction Function,
+		FMaterialUpdateContext& UpdateContext);
+
 	static FString GenerateFunctionCode(const UHLSLMaterialFunctionLibrary& Library, const FFunction& Function);
+
+private:
 	static void HookMessageLogHack(IMaterialEditor& MaterialEditor);
 	static void ReplaceMessages(FMessageLogListingViewModel& ViewModel);
 	
@@ -81,4 +90,10 @@ private:
 	}
 
 	static bool TryLoadFileToString(FString& Text, const FString& FullPath, const FString& LibraryName);
+
+	static void GetIncludes(
+		const FString& Text,
+		const FString& LibraryName,
+		TArray<FString>& OutVirtualIncludes,
+		TArray<FString>& OutDiskIncludes);
 };

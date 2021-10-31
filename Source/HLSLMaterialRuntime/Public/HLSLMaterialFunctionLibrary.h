@@ -14,7 +14,7 @@ class HLSLMATERIALRUNTIME_API IHLSLMaterialEditorInterface
 public:
 	virtual ~IHLSLMaterialEditorInterface() = default;
 
-	virtual TSharedRef<FVirtualDestructor> CreateWatcher(UHLSLMaterialFunctionLibrary& Library, const TArray<FString>& Files) = 0;
+	virtual TSharedRef<FVirtualDestructor> CreateWatcher(UHLSLMaterialFunctionLibrary& Library) = 0;
 	virtual void Update(UHLSLMaterialFunctionLibrary& Library) = 0;
 
 public:
@@ -59,10 +59,6 @@ public:
 	// If compilation is taking forever for you, consider turning this off
 	UPROPERTY(EditAnywhere, Category = "Config")
 	bool bAccurateErrors = true;
-
-	// Gets passed to the IncludeFilePaths property in material function custom node
-	UPROPERTY(EditAnywhere, Category = "Config")
-	TArray<FString> IncludeFilePaths;
 	
 	// Gets passed to the AdditionalDefines property in material function custom node
 	UPROPERTY(EditAnywhere, Category = "Config")
@@ -77,6 +73,8 @@ public:
 	FString GetFilePath() const;
 	static FString GetFilePath(const FString& InFilePath);
 
+	void CreateWatcherIfNeeded();
+
 	//~ Begin UObject Interface
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void BeginDestroy() override;
@@ -85,8 +83,6 @@ public:
 
 private:
 	TSharedPtr<FVirtualDestructor> Watcher;
-
-	void CreateWatcher();
 
 	static void MakeRelativePath(FString& Path);
 

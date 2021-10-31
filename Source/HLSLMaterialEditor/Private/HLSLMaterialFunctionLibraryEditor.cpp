@@ -44,15 +44,9 @@ UObject* UHLSLMaterialFunctionLibraryFactory::FactoryCreateNew(UClass* Class, UO
 class FHLSLMaterialEditorInterfaceImpl : public IHLSLMaterialEditorInterface
 {
 public:
-	virtual TSharedRef<FVirtualDestructor> CreateWatcher(UHLSLMaterialFunctionLibrary& Library, const TArray<FString>& Files) override
+	virtual TSharedRef<FVirtualDestructor> CreateWatcher(UHLSLMaterialFunctionLibrary& Library) override
 	{
-		const TSharedRef<FHLSLMaterialFileWatcher> Watcher = FHLSLMaterialFileWatcher::Create(Files);
-		Watcher->OnFileChanged.AddWeakLambda(&Library, [&Library]
-		{
-			FVoxelMaterialFunctionLibraryEditor::Generate(Library);
-		});
-
-		return Watcher;
+		return FVoxelMaterialFunctionLibraryEditor::CreateWatcher(Library);
 	}
 	virtual void Update(UHLSLMaterialFunctionLibrary& Library) override
 	{
@@ -103,30 +97,34 @@ void FVoxelMaterialFunctionLibraryEditor::Register()
 	});
 }
 
-bool FVoxelMaterialFunctionLibraryEditor::TryLoadFileToString(FString& Text, const FString& FullPath, const FString& LibraryName)
+TSharedRef<FVirtualDestructor> FVoxelMaterialFunctionLibraryEditor::CreateWatcher(UHLSLMaterialFunctionLibrary& Library)
 {
-	if (!FPaths::FileExists(FullPath))
+	TArray<FString> Files;
+	Files.Add(Library.GetFilePath());
+
+	FString Text;
+	if (TryLoadFileToString(Text, Library.GetFilePath(), Library.GetName()))
 	{
-		ShowMessage(ESeverity::Error, TEXT("%s: invalid path %s"), *LibraryName, *FullPath);
-		return false;
+		TArray<FString> VirtualIncludes;
+		TArray<FString> DiskIncludes;
+		GetIncludes(Text, Library.GetName(), VirtualIncludes, DiskIncludes);
+		Files.Append(DiskIncludes);
 	}
 
-	if (!FFileHelper::LoadFileToString(Text, *FullPath))
+	const TSharedRef<FHLSLMaterialFileWatcher> Watcher = FHLSLMaterialFileWatcher::Create(Files);
+	Watcher->OnFileChanged.AddWeakLambda(&Library, [&Library]
 	{
-		FPlatformProcess::Sleep(0.1f);
+		Generate(Library);
+	});
 
-		if (!FFileHelper::LoadFileToString(Text, *FullPath))
-		{
-			ShowMessage(ESeverity::Error, TEXT("%s: failed to read %s"), *LibraryName, *FullPath);
-			return false;
-		}
-	}
-
-	return true;
+	return Watcher;
 }
 
 void FVoxelMaterialFunctionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary& Library)
 {
+	// Always recreate watcher in case includes changed
+	Library.CreateWatcherIfNeeded();
+
 	const FString FullPath = Library.GetFilePath();
 	const FString LibraryName = Library.GetName();
 	
@@ -136,27 +134,18 @@ void FVoxelMaterialFunctionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary&
 		return;
 	}
 
+	TArray<FString> VirtualIncludes;
+	TArray<FString> DiskIncludes;
+	GetIncludes(Text, LibraryName, VirtualIncludes, DiskIncludes);
+
 	FString IncludesHash;
-	for (const FString& IncludeFilePath : Library.IncludeFilePaths)
+	for (const FString& Include : DiskIncludes)
 	{
-		if (IncludeFilePath.IsEmpty())
-		{
-			continue;
-		}
-		const FString MappedInclude = GetShaderSourceFilePath(IncludeFilePath);
-		if (MappedInclude.IsEmpty())
-		{
-			ShowMessage(ESeverity::Error, TEXT("%s: failed to map include %s"), *LibraryName, *IncludeFilePath);
-			continue;
-		}
-
 		FString IncludeText;
-		if (!TryLoadFileToString(IncludeText, MappedInclude, LibraryName))
+		if (TryLoadFileToString(IncludeText, Include, LibraryName))
 		{
-			continue;
+			IncludesHash += HashString(IncludeText);
 		}
-
-		IncludesHash += HashString(IncludeText);
 	}
 
 	TArray<FFunction> Functions;
@@ -164,13 +153,13 @@ void FVoxelMaterialFunctionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary&
 		enum class EScope
 		{
 			Global,
+			Preprocessor,
 			FunctionComment,
 			FunctionReturn,
 			FunctionName,
 			FunctionArgs,
 			FunctionBodyStart,
-			FunctionBody,
-			Preprocessor
+			FunctionBody
 		};
 
 		EScope Scope = EScope::Global;
@@ -215,7 +204,11 @@ void FVoxelMaterialFunctionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary&
 				}
 				Index--;
 
-				if (Char == TEXT('/'))
+				if (Char == TEXT('#'))
+				{
+					Scope = EScope::Preprocessor;
+				}
+				else if (Char == TEXT('/'))
 				{
 					Scope = EScope::FunctionComment;
 				}
@@ -223,11 +216,16 @@ void FVoxelMaterialFunctionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary&
 				{
 					Scope = EScope::FunctionReturn;
 				}
-
-				if (Char == TEXT('#'))
+			}
+			break;
+			case EScope::Preprocessor:
+			{
+				if (!FChar::IsLinebreak(Char))
 				{
-					Scope = EScope::Preprocessor;
+					continue;
 				}
+
+				Scope = EScope::Global;
 			}
 			break;
 			case EScope::FunctionComment:
@@ -342,16 +340,6 @@ void FVoxelMaterialFunctionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary&
 				Scope = EScope::Global;
 			}
 			break;
-			case EScope::Preprocessor:
-			{
-				if (!FChar::IsLinebreak(Char))
-				{
-					continue;
-				}
-
-				Scope = EScope::Global;
-			}
-			break;
 			default: ensure(false);
 			}
 		}
@@ -384,7 +372,7 @@ void FVoxelMaterialFunctionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary&
 	{
 		Function.HashedString = Function.GenerateHashedString(IncludesHash);
 		
-		const FString Error = GenerateFunction(Library, Function, UpdateContext);
+		const FString Error = GenerateFunction(Library, VirtualIncludes, Function, UpdateContext);
 		if (!Error.IsEmpty())
 		{
 			ShowMessage(ESeverity::Error, TEXT("Error in %s: Function %s: %s"), *FullPath, *Function.Name, *Error);
@@ -417,7 +405,11 @@ FString FVoxelMaterialFunctionLibraryEditor::FFunction::GenerateHashedString(con
 	return "HLSL Hash: " + HashString(StringToHash);
 }
 
-FString FVoxelMaterialFunctionLibraryEditor::GenerateFunction(UHLSLMaterialFunctionLibrary& Library, FFunction Function, FMaterialUpdateContext& UpdateContext)
+FString FVoxelMaterialFunctionLibraryEditor::GenerateFunction(
+	UHLSLMaterialFunctionLibrary& Library,
+	const TArray<FString>& IncludeFilePaths,
+	FFunction Function,
+	FMaterialUpdateContext& UpdateContext)
 {
 	TSoftObjectPtr<UMaterialFunction>* MaterialFunctionPtr = Library.MaterialFunctions.FindByPredicate([&](TSoftObjectPtr<UMaterialFunction> InFunction)
 	{
@@ -701,7 +693,7 @@ FString FVoxelMaterialFunctionLibraryEditor::GenerateFunction(UHLSLMaterialFunct
 	MaterialExpressionCustom->Code = GenerateFunctionCode(Library, Function);
 	MaterialExpressionCustom->MaterialExpressionEditorX = 500;
 	MaterialExpressionCustom->MaterialExpressionEditorY = 0;
-	MaterialExpressionCustom->IncludeFilePaths = Library.IncludeFilePaths;
+	MaterialExpressionCustom->IncludeFilePaths = IncludeFilePaths;
 	MaterialExpressionCustom->AdditionalDefines = Library.AdditionalDefines;
 	MaterialFunction->FunctionExpressions.Add(MaterialExpressionCustom);
 
@@ -788,6 +780,10 @@ FString FVoxelMaterialFunctionLibraryEditor::GenerateFunctionCode(const UHLSLMat
 	return FString::Printf(TEXT("// START %s\n\n%s\n\n// END %s\n\nreturn 0.f;\n//%s\n"), *Function.Name, *Code, *Function.Name, *Function.HashedString);
 }
 
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
 void FVoxelMaterialFunctionLibraryEditor::HookMessageLogHack(IMaterialEditor& MaterialEditor)
 {
 	const TSharedPtr<FMaterialStats> StatsManager = static_cast<FMaterialEditor&>(MaterialEditor).MaterialStatsManager;
@@ -855,7 +851,7 @@ void FVoxelMaterialFunctionLibraryEditor::ReplaceMessages(FMessageLogListingView
 					// Try to parse a shader file path
 
 					// [FeatureLevel] /Path(line info): error
-					FRegexPattern RegexPattern("(\\[.*\\] )(\\/.*)(\\(.*\\): .*)");
+					FRegexPattern RegexPattern(R"_((\[.*\] )(\/.*)(\(.*\): .*))_");
 					FRegexMatcher RegexMatcher(RegexPattern, Error);
 					if (!RegexMatcher.FindNext())
 					{
@@ -878,7 +874,7 @@ void FVoxelMaterialFunctionLibraryEditor::ReplaceMessages(FMessageLogListingView
 			{
 				// Error prefix (line,char) error suffix
 				// Error prefix (line,char-char) error suffix
-				FRegexPattern RegexPattern("\\(([0-9]*),([0-9]*)(-([0-9]*))?\\)(.*)");
+				FRegexPattern RegexPattern(R"_(\(([0-9]*),([0-9]*)(-([0-9]*))?\)(.*))_");
 				FRegexMatcher RegexMatcher(RegexPattern, ErrorSuffix);
 				if (RegexMatcher.FindNext())
 				{
@@ -893,7 +889,7 @@ void FVoxelMaterialFunctionLibraryEditor::ReplaceMessages(FMessageLogListingView
 			{
 				// Error prefix (line): error suffix
 				// Error prefix (line): (char) error suffix
-				FRegexPattern RegexPattern("\\(([0-9]*)\\): (\\(([0-9]*)\\))?(.*)");
+				FRegexPattern RegexPattern(R"_(\(([0-9]*)\): (\(([0-9]*)\))?(.*))_");
 				FRegexMatcher RegexMatcher(RegexPattern, ErrorSuffix);
 				if (RegexMatcher.FindNext())
 				{
@@ -1069,4 +1065,50 @@ void FVoxelMaterialFunctionLibraryEditor::ShowMessageImpl(ESeverity Severity, FS
 		UE_LOG(LogHLSLMaterial, Error, TEXT("%s"), *Message);
 	}
 	FSlateNotificationManager::Get().AddNotification(Info);
+}
+
+bool FVoxelMaterialFunctionLibraryEditor::TryLoadFileToString(FString& Text, const FString& FullPath, const FString& LibraryName)
+{
+	if (!FPaths::FileExists(FullPath))
+	{
+		ShowMessage(ESeverity::Error, TEXT("%s: invalid path %s"), *LibraryName, *FullPath);
+		return false;
+	}
+
+	if (!FFileHelper::LoadFileToString(Text, *FullPath))
+	{
+		FPlatformProcess::Sleep(0.1f);
+
+		if (!FFileHelper::LoadFileToString(Text, *FullPath))
+		{
+			ShowMessage(ESeverity::Error, TEXT("%s: failed to read %s"), *LibraryName, *FullPath);
+			return false;
+		}
+	}
+
+	return true;
+}
+
+void FVoxelMaterialFunctionLibraryEditor::GetIncludes(
+	const FString& Text,
+	const FString& LibraryName,
+	TArray<FString>& OutVirtualIncludes,
+	TArray<FString>& OutDiskIncludes)
+{
+	FRegexPattern RegexPattern(R"_((\A|\v)\s*#include "([^"]+)")_");
+	FRegexMatcher RegexMatcher(RegexPattern, Text);
+	while (RegexMatcher.FindNext())
+	{
+		const FString Include = RegexMatcher.GetCaptureGroup(2);
+		OutVirtualIncludes.Add(Include);
+
+		const FString MappedInclude = GetShaderSourceFilePath(Include);
+		if (MappedInclude.IsEmpty())
+		{
+			ShowMessage(ESeverity::Error, TEXT("%s: failed to map include %s"), *LibraryName, *Include);
+			continue;
+		}
+
+		OutDiskIncludes.Add(FPaths::ConvertRelativePathToFull(MappedInclude));
+	}
 }

@@ -27,6 +27,14 @@ FString UHLSLMaterialFunctionLibrary::GetFilePath(const FString& InFilePath)
 	return FPaths::ConvertRelativePathToFull(FullPath);
 }
 
+void UHLSLMaterialFunctionLibrary::CreateWatcherIfNeeded()
+{
+	if (bUpdateOnFileChange)
+	{
+		Watcher = IHLSLMaterialEditorInterface::Get().CreateWatcher(*this);
+	}
+}
+
 void UHLSLMaterialFunctionLibrary::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
@@ -43,51 +51,21 @@ void UHLSLMaterialFunctionLibrary::PostEditChangeProperty(FPropertyChangedEvent&
 	}
 
 	Watcher.Reset();
-	if (bUpdateOnFileChange)
-	{
-		CreateWatcher();
-	}
+	CreateWatcherIfNeeded();
 }
 
 void UHLSLMaterialFunctionLibrary::BeginDestroy()
 {
 	Super::BeginDestroy();
-	
+
 	Watcher.Reset();
 }
 
 void UHLSLMaterialFunctionLibrary::PostLoad()
 {
 	Super::PostLoad();
-
-	if (bUpdateOnFileChange)
-	{
-		CreateWatcher();
-	}
-}
-
-void UHLSLMaterialFunctionLibrary::CreateWatcher()
-{
-	TArray<FString> Files;
-	Files.Add(GetFilePath());
-
-	for (const FString& IncludeFilePath : IncludeFilePaths)
-	{
-		if (IncludeFilePath.IsEmpty())
-		{
-			continue;
-		}
-
-		const FString MappedInclude = GetShaderSourceFilePath(IncludeFilePath);
-		if (MappedInclude.IsEmpty())
-		{
-			continue;
-		}
-
-		Files.Add(FPaths::ConvertRelativePathToFull(MappedInclude));
-	}
-
-	Watcher = IHLSLMaterialEditorInterface::Get().CreateWatcher(*this, Files);
+	
+	CreateWatcherIfNeeded();
 }
 
 void UHLSLMaterialFunctionLibrary::MakeRelativePath(FString& Path)
