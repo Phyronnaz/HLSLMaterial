@@ -50,6 +50,12 @@ private:
 		
 		FString GenerateHashedString(const FString& IncludesHash) const;
 	};
+
+	static bool ParseFunctions(
+		const UHLSLMaterialFunctionLibrary& Library, 
+		FString Text, 
+		TArray<FFunction>& OutFunctions);
+
 	static FString GenerateFunction(
 		UHLSLMaterialFunctionLibrary& Library,
 		const TArray<FString>& IncludeFilePaths,
@@ -75,7 +81,16 @@ private:
 		}
 		return CastChecked<T>(CreateAsset(AssetName, FolderPath, Class, Suffix), ECastCheckedType::NullAllowed);
 	}
+	static bool TryLoadFileToString(FString& Text, const FString& FullPath);
 
+	struct FInclude
+	{
+		FString VirtualPath;
+		FString DiskPath;
+	};
+	static void GetIncludes(const FString& Text, TArray<FInclude>& OutIncludes);
+	
+private:
 	enum class ESeverity
 	{
 		Info,
@@ -89,11 +104,16 @@ private:
 		ShowMessageImpl(Severity, FString::Printf(Fmt, Args...));
 	}
 
-	static bool TryLoadFileToString(FString& Text, const FString& FullPath, const FString& LibraryName);
+	struct FLibraryScope
+	{
+		explicit FLibraryScope(UHLSLMaterialFunctionLibrary& InLibrary)
+			: Guard(Library, &InLibrary)
+		{
+		}
 
-	static void GetIncludes(
-		const FString& Text,
-		const FString& LibraryName,
-		TArray<FString>& OutVirtualIncludes,
-		TArray<FString>& OutDiskIncludes);
+		static UHLSLMaterialFunctionLibrary* Library;
+
+	private:
+		TGuardValue<UHLSLMaterialFunctionLibrary*> Guard;
+	};
 };
