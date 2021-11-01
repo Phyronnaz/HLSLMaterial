@@ -103,7 +103,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 
 	for (const FString& Argument : Function.Arguments)
 	{
-		FRegexPattern RegexPattern(R"_(\s*(out\s+)?(\w*)\s+(\w*)(\s*=\s*(.+))?\s*)_");
+		FRegexPattern RegexPattern(R"_(^\s*(?:(?:const\s+)?|(out\s+)?)(\w*)\s+(\w*)(\s*=\s*(.+))?\s*$)_");
 		FRegexMatcher RegexMatcher(RegexPattern, Argument);
 		if (!RegexMatcher.FindNext())
 		{
