@@ -22,6 +22,7 @@
 #include "Materials/MaterialExpressionStaticSwitch.h"
 #include "Materials/MaterialExpressionFunctionInput.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
+#include "Materials/MaterialExpressionTextureCoordinate.h"
 
 FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 	UHLSLMaterialFunctionLibrary& Library,
@@ -298,6 +299,17 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		(bIsOutput ? Outputs : Inputs).Add(Pin);
 	}
 
+	// Detect used texture coordinates
+	int32 MaxTexCoordinateUsed = -1;
+	{
+		FRegexPattern RegexPattern(R"_(Parameters.TexCoords\[([0-9]+)\])_");
+		FRegexMatcher RegexMatcher(RegexPattern, Function.Body);
+		while (RegexMatcher.FindNext())
+		{
+			MaxTexCoordinateUsed = FMath::Max(MaxTexCoordinateUsed, FCString::Atoi(*RegexMatcher.GetCaptureGroup(1)));
+		}
+	}
+
 	///////////////////////////////////////////////////////////////////////////////////
 	//// Past this point, try to never error out as it'll break existing functions ////
 	///////////////////////////////////////////////////////////////////////////////////
@@ -491,6 +503,23 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		{
 			const FPin& Output = Outputs[Index];
 			MaterialExpressionCustom->AdditionalOutputs.Add({ Output.Name, Output.CustomOutputType.GetValue() });
+		}
+
+		if (MaxTexCoordinateUsed != -1)
+		{
+			// Create a dummy texture coordinate index to ensure NUM_TEX_COORD_INTERPOLATORS is correct
+
+			UMaterialExpressionTextureCoordinate* TextureCoordinate = NewObject<UMaterialExpressionTextureCoordinate>(MaterialFunction);
+			TextureCoordinate->MaterialExpressionGuid = FGuid::NewGuid();
+			TextureCoordinate->bCollapsed = true;
+			TextureCoordinate->CoordinateIndex = MaxTexCoordinateUsed;
+			TextureCoordinate->MaterialExpressionEditorX = MaterialExpressionCustom->MaterialExpressionEditorX - 200;
+			TextureCoordinate->MaterialExpressionEditorY = MaterialExpressionCustom->MaterialExpressionEditorY;
+			MaterialFunction->FunctionExpressions.Add(TextureCoordinate);
+
+			FCustomInput& CustomInput = MaterialExpressionCustom->Inputs.Emplace_GetRef();
+			CustomInput.InputName = "DUMMY_COORDINATE_INPUT";
+			CustomInput.Input.Connect(0, TextureCoordinate);
 		}
 
 		MaterialExpressionCustom->PostEditChange();
