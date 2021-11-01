@@ -460,7 +460,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			bool bValue = Width & (1 << Index);
 			// Invert the value, as switches take True as first pin
 			bValue = !bValue;
-			BoolDeclarations += "const bool " + Inputs[Index].Name.ToString() + " = " + (bValue ? "true" : "false") + ";\n";
+			BoolDeclarations += "const bool " + Inputs[StaticBoolParameters[Index]].Name.ToString() + " = " + (bValue ? "true" : "false") + ";\n";
 		}
 
 		UMaterialExpressionCustom* MaterialExpressionCustom = NewObject<UMaterialExpressionCustom>(MaterialFunction);
@@ -612,7 +612,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunctionCode(const UHLSLMaterial
 
 bool FHLSLMaterialFunctionGenerator::ParseDefaultValue(const FString& DefaultValue, int32 Dimension, FVector4& OutValue)
 {
-	const FString FloatPattern = R"_(\s*((?:[0-9]*[.])?[0-9]+)f?\s*)_";
+	const FString FloatPattern = R"_(\s*((?:[0-9]*[.])?[0-9]*)f?\s*)_";
 
 	const auto TryParseFloat = [&](const FString& String, float& OutFloatValue)
 	{
