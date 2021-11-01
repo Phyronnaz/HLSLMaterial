@@ -113,6 +113,13 @@ void FHLSLMaterialErrorHook::ReplaceMessages(FMessageLogListingViewModel& ViewMo
 					FullPath = GetShaderSourceFilePath(Path);
 				}
 			}
+
+			// Avoid doing silly stuff with generated files
+			if (!FPaths::FileExists(FullPath))
+			{
+				NewTokens.Add(Token);
+				continue;
+			}
 			
 			FString LineNumber;
 			FString CharStart;
