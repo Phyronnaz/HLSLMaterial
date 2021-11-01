@@ -21,6 +21,8 @@ public:
 
 private:
 	static FString GenerateFunctionCode(const UHLSLMaterialFunctionLibrary& Library, const FHLSLMaterialFunction& Function, const FString& BoolDeclarations);
+	static bool ParseDefaultValue(const FString& DefaultValue, int32 Dimension, FVector4& OutValue);
+
 	static IMaterialEditor* FindMaterialEditorForAsset(UObject* InAsset);
 	static UObject* CreateAsset(FString AssetName, FString FolderPath, UClass* Class, FString& OutError);
 

@@ -9,6 +9,7 @@
 #include "Misc/ScopeExit.h"
 #include "IMaterialEditor.h"
 #include "AssetToolsModule.h"
+#include "Internationalization/Regex.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Widgets/Notifications/SNotificationList.h"
 #include "Framework/Notifications/NotificationManager.h"
@@ -17,6 +18,7 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialExpressionComment.h"
 #include "Materials/MaterialExpressionCustom.h"
+#include "Materials/MaterialExpressionStaticBool.h"
 #include "Materials/MaterialExpressionStaticSwitch.h"
 #include "Materials/MaterialExpressionFunctionInput.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
@@ -79,6 +81,227 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		}
 	}
 
+	struct FPin
+	{
+		FName Name;
+		FString ToolTip;
+		EFunctionInputType FunctionInputType = {};
+		TOptional<ECustomMaterialOutputType> CustomOutputType;
+
+		FString DefaultValueText;
+		bool bDefaultValueBool = false;
+		FVector4 DefaultValueVector{ ForceInit };
+	};
+	TArray<FPin> Inputs;
+	TArray<FPin> Outputs;
+
+	if (Function.ReturnType != "void")
+	{
+		return "Return type needs to be void";
+	}
+
+	for (const FString& Argument : Function.Arguments)
+	{
+		FRegexPattern RegexPattern(R"_(\s*(out\s+)?(\w*)\s+(\w*)(\s*=\s*(.+))?\s*)_");
+		FRegexMatcher RegexMatcher(RegexPattern, Argument);
+		if (!RegexMatcher.FindNext())
+		{
+			return "Invalid arguments syntax";
+		}
+
+		const bool bIsOutput = !RegexMatcher.GetCaptureGroup(1).IsEmpty();
+		const FString Type = RegexMatcher.GetCaptureGroup(2);
+		const FString Name = RegexMatcher.GetCaptureGroup(3);
+		const FString DefaultValue = RegexMatcher.GetCaptureGroup(5);
+
+		if ((Type == "FMaterialPixelParameters" || Type == "FMaterialVertexParameters") &&
+			Name == "Parameters")
+		{
+			// Allow passing Parameters explicitly
+			// The Custom node will handle passing them
+			continue;
+		}
+		if (Type == "SamplerState")
+		{
+			FString TextureName = Name;
+			if (!TextureName.RemoveFromEnd(TEXT("Sampler")))
+			{
+				return "Invalid sampler parameter: " + Name + ". Sampler parameters should be named [TextureParameterName]Sampler";
+			}
+
+			// The Custom node will add samplers
+			continue;
+		}
+
+		FPin Pin;
+		Pin.Name = *Name;
+		Pin.DefaultValueText = DefaultValue;
+
+		const FString DefaultValueError = Name + ": invalid default value for type " + Type + ": " + DefaultValue;
+		
+		if (Type == "bool")
+		{
+			Pin.FunctionInputType = FunctionInput_StaticBool;
+
+			if (!DefaultValue.IsEmpty())
+			{
+				if (DefaultValue == "true")
+				{
+					Pin.bDefaultValueBool = true;
+				}
+				else if (DefaultValue == "false")
+				{
+					Pin.bDefaultValueBool = false;
+				}
+				else
+				{
+					return DefaultValueError;
+				}
+			}
+		}
+		else if (Type == "float")
+		{
+			Pin.FunctionInputType = FunctionInput_Scalar;
+			Pin.CustomOutputType = CMOT_Float1;
+
+			if (!DefaultValue.IsEmpty() && !ParseDefaultValue(DefaultValue, 1, Pin.DefaultValueVector))
+			{
+				return DefaultValueError;
+			}
+		}
+		else if (Type == "float2")
+		{
+			Pin.FunctionInputType = FunctionInput_Vector2;
+			Pin.CustomOutputType = CMOT_Float2;
+			
+			if (!DefaultValue.IsEmpty() && !ParseDefaultValue(DefaultValue, 2, Pin.DefaultValueVector))
+			{
+				return DefaultValueError;
+			}
+		}
+		else if (Type == "float3")
+		{
+			Pin.FunctionInputType = FunctionInput_Vector3;
+			Pin.CustomOutputType = CMOT_Float3;
+			
+			if (!DefaultValue.IsEmpty() && !ParseDefaultValue(DefaultValue, 3, Pin.DefaultValueVector))
+			{
+				return DefaultValueError;
+			}
+		}
+		else if (Type == "float4")
+		{
+			Pin.FunctionInputType = FunctionInput_Vector4;
+			Pin.CustomOutputType = CMOT_Float4;
+			
+			if (!DefaultValue.IsEmpty() && !ParseDefaultValue(DefaultValue, 4, Pin.DefaultValueVector))
+			{
+				return DefaultValueError;
+			}
+		}
+		else if (Type == "Texture2D")
+		{
+			Pin.FunctionInputType = FunctionInput_Texture2D;
+			
+			if (!DefaultValue.IsEmpty())
+			{
+				return DefaultValueError;
+			}
+		}
+		else if (Type == "TextureCube")
+		{
+			Pin.FunctionInputType = FunctionInput_TextureCube;
+			
+			if (!DefaultValue.IsEmpty())
+			{
+				return DefaultValueError;
+			}
+		}
+		else if (Type == "Texture2DArray")
+		{
+			Pin.FunctionInputType = FunctionInput_Texture2DArray;
+			
+			if (!DefaultValue.IsEmpty())
+			{
+				return DefaultValueError;
+			}
+		}
+		else if (Type == "TextureExternal")
+		{
+			Pin.FunctionInputType = FunctionInput_TextureExternal;
+			
+			if (!DefaultValue.IsEmpty())
+			{
+				return DefaultValueError;
+			}
+		}
+		else if (Type == "Texture3D")
+		{
+			Pin.FunctionInputType = FunctionInput_VolumeTexture;
+			
+			if (!DefaultValue.IsEmpty())
+			{
+				return DefaultValueError;
+			}
+		}
+		else
+		{
+			return "Invalid argument type: " + Type;
+		}
+
+		if (bIsOutput && !Pin.CustomOutputType.IsSet())
+		{
+			return "Invalid argument type for an output: " + Type;
+		}
+
+		int32 Index = 0;
+		while (Index < Function.Comment.Len())
+		{
+			Index = Function.Comment.Find(TEXT("@param"), ESearchCase::IgnoreCase, ESearchDir::FromStart, Index);
+			if (Index == -1)
+			{
+				break;
+			}
+
+			Index += FString(TEXT("@param")).Len();
+
+			while (Index < Function.Comment.Len() && FChar::IsWhitespace(Function.Comment[Index]))
+			{
+				Index++;
+			}
+
+			FString ParamName;
+			while (Index < Function.Comment.Len() && !FChar::IsWhitespace(Function.Comment[Index]))
+			{
+				ParamName += Function.Comment[Index++];
+			}
+
+			if (ParamName != Name)
+			{
+				continue;
+			}
+
+			while (Index < Function.Comment.Len() && FChar::IsWhitespace(Function.Comment[Index]))
+			{
+				Index++;
+			}
+
+			while (Index < Function.Comment.Len() && !FChar::IsLinebreak(Function.Comment[Index]))
+			{
+				Pin.ToolTip += Function.Comment[Index++];
+			}
+			Pin.ToolTip.TrimStartAndEndInline();
+
+			break;
+		}
+
+		(bIsOutput ? Outputs : Inputs).Add(Pin);
+	}
+
+	///////////////////////////////////////////////////////////////////////////////////
+	//// Past this point, try to never error out as it'll break existing functions ////
+	///////////////////////////////////////////////////////////////////////////////////
+
 	TMap<FName, FGuid> FunctionInputGuids;
 	TMap<FName, FGuid> FunctionOutputGuids;
 	for (UMaterialExpression* Expression : MaterialFunction->FunctionExpressions)
@@ -138,168 +361,10 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		MaterialFunction->MarkPackageDirty();
 	};
 
-	struct FPin
-	{
-		FName Name;
-		FString ToolTip;
-		EFunctionInputType FunctionType;
-		TOptional<ECustomMaterialOutputType> CustomOutputType;
-	};
-	TArray<FPin> Inputs;
-	TArray<FPin> Outputs;
-
-	if (Function.ReturnType != "void")
-	{
-		return "Return type needs to be void";
-	}
-
-	for (FString Argument : Function.Arguments)
-	{
-		Argument.TrimStartAndEndInline();
-
-		bool bIsOutput = false;
-		if (Argument.StartsWith("out"))
-		{
-			bIsOutput = true;
-			Argument.RemoveFromStart("out");
-			Argument.TrimStartAndEndInline();
-		}
-
-		TArray<FString> TypeAndName;
-		Argument.ParseIntoArray(TypeAndName, TEXT(" "));
-		if (TypeAndName.Num() != 2)
-		{
-			return "Invalid arguments syntax";
-		}
-
-		const FString Type = TypeAndName[0];
-		const FString Name = TypeAndName[1];
-
-		if ((Type == "FMaterialPixelParameters" || Type == "FMaterialVertexParameters") &&
-			Name == "Parameters")
-		{
-			// Allow passing Parameters explicitly
-			// The Custom node will handle passing them
-			continue;
-		}
-		if (Type == "SamplerState")
-		{
-			FString TextureName = Name;
-			if (!TextureName.RemoveFromEnd(TEXT("Sampler")))
-			{
-				return "Invalid sampler parameter: " + Name + ". Sampler parameters should be named [TextureParameterName]Sampler";
-			}
-
-			// The Custom node will add samplers
-			continue;
-		}
-
-		EFunctionInputType FunctionInputType;
-		TOptional<ECustomMaterialOutputType> CustomOutputType;
-
-		if (Type == "bool")
-		{
-			FunctionInputType = FunctionInput_StaticBool;
-		}
-		else if (Type == "float")
-		{
-			FunctionInputType = FunctionInput_Scalar;
-			CustomOutputType = CMOT_Float1;
-		}
-		else if (Type == "float2")
-		{
-			FunctionInputType = FunctionInput_Vector2;
-			CustomOutputType = CMOT_Float2;
-		}
-		else if (Type == "float3")
-		{
-			FunctionInputType = FunctionInput_Vector3;
-			CustomOutputType = CMOT_Float3;
-		}
-		else if (Type == "float4")
-		{
-			FunctionInputType = FunctionInput_Vector4;
-			CustomOutputType = CMOT_Float4;
-		}
-		else if (Type == "Texture2D")
-		{
-			FunctionInputType = FunctionInput_Texture2D;
-		}
-		else if (Type == "TextureCube")
-		{
-			FunctionInputType = FunctionInput_TextureCube;
-		}
-		else if (Type == "Texture2DArray")
-		{
-			FunctionInputType = FunctionInput_Texture2DArray;
-		}
-		else if (Type == "TextureExternal")
-		{
-			FunctionInputType = FunctionInput_TextureExternal;
-		}
-		else if (Type == "Texture3D")
-		{
-			FunctionInputType = FunctionInput_VolumeTexture;
-		}
-		else
-		{
-			return "Invalid argument type: " + Type;
-		}
-
-		if (bIsOutput && !CustomOutputType.IsSet())
-		{
-			return "Invalid argument type for an output: " + Type;
-		}
-
-		FString ToolTip;
-		int32 Index = 0;
-		while (Index < Function.Comment.Len())
-		{
-			Index = Function.Comment.Find(TEXT("@param"), ESearchCase::IgnoreCase, ESearchDir::FromStart, Index);
-			if (Index == -1)
-			{
-				break;
-			}
-
-			Index += FString(TEXT("@param")).Len();
-
-			while (Index < Function.Comment.Len() && FChar::IsWhitespace(Function.Comment[Index]))
-			{
-				Index++;
-			}
-
-			FString ParamName;
-			while (Index < Function.Comment.Len() && !FChar::IsWhitespace(Function.Comment[Index]))
-			{
-				ParamName += Function.Comment[Index++];
-			}
-
-			if (ParamName != Name)
-			{
-				continue;
-			}
-
-			while (Index < Function.Comment.Len() && FChar::IsWhitespace(Function.Comment[Index]))
-			{
-				Index++;
-			}
-
-			while (Index < Function.Comment.Len() && !FChar::IsLinebreak(Function.Comment[Index]))
-			{
-				ToolTip += Function.Comment[Index++];
-			}
-			ToolTip.TrimStartAndEndInline();
-
-			break;
-		}
-
-		(bIsOutput ? Outputs : Inputs).Add({ *Name, ToolTip, FunctionInputType, CustomOutputType });
-	}
-
 	TArray<int32> StaticBoolParameters;
 	for (int32 Index = 0; Index < Inputs.Num(); Index++)
 	{
-		if (Inputs[Index].FunctionType == FunctionInput_StaticBool)
+		if (Inputs[Index].FunctionInputType == FunctionInput_StaticBool)
 		{
 			StaticBoolParameters.Add(Index);
 		}
@@ -308,7 +373,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 	TArray<UMaterialExpressionFunctionInput*> FunctionInputs;
 	for (int32 Index = 0; Index < Inputs.Num(); Index++)
 	{
-		FPin& Input = Inputs[Index];
+		const FPin& Input = Inputs[Index];
 
 		UMaterialExpressionFunctionInput* Expression = NewObject<UMaterialExpressionFunctionInput>(MaterialFunction);
 		Expression->MaterialExpressionGuid = FGuid::NewGuid();
@@ -320,19 +385,46 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		Expression->bCollapsed = true;
 		Expression->SortPriority = Index;
 		Expression->InputName = Input.Name;
-		Expression->InputType = Input.FunctionType;
+		Expression->InputType = Input.FunctionInputType;
 		Expression->Description = Input.ToolTip;
 		Expression->MaterialExpressionEditorX = 0;
 		Expression->MaterialExpressionEditorY = 200 * Index;
 
 		FunctionInputs.Add(Expression);
 		MaterialFunction->FunctionExpressions.Add(Expression);
+
+		if (!Input.DefaultValueText.IsEmpty())
+		{
+			Expression->bUsePreviewValueAsDefault = true;
+
+			if (!Expression->Description.IsEmpty())
+			{
+				Expression->Description += "\n";
+			}
+			Expression->Description += "Default Value = " + Input.DefaultValueText;
+			Expression->InputName = *(Input.Name.ToString() + " ( = " + Input.DefaultValueText + ")");
+
+			if (Input.FunctionInputType == FunctionInput_StaticBool)
+			{
+				UMaterialExpressionStaticBool* StaticBool = NewObject<UMaterialExpressionStaticBool>(MaterialFunction);
+				StaticBool->MaterialExpressionGuid = FGuid::NewGuid();
+				StaticBool->MaterialExpressionEditorX = Expression->MaterialExpressionEditorX - 200;
+				StaticBool->MaterialExpressionEditorY = Expression->MaterialExpressionEditorY;
+				StaticBool->Value = Input.bDefaultValueBool;
+				MaterialFunction->FunctionExpressions.Add(StaticBool);
+				Expression->Preview.Connect(0, StaticBool);
+			}
+			else
+			{
+				Expression->PreviewValue = Input.DefaultValueVector;
+			}
+		}
 	}
 
 	TArray<UMaterialExpressionFunctionOutput*> FunctionOutputs;
 	for (int32 Index = 0; Index < Outputs.Num(); Index++)
 	{
-		FPin& Output = Outputs[Index];
+		const FPin& Output = Outputs[Index];
 
 		UMaterialExpressionFunctionOutput* Expression = NewObject<UMaterialExpressionFunctionOutput>(MaterialFunction);
 		Expression->MaterialExpressionGuid = FGuid::NewGuid();
@@ -385,7 +477,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		for (int32 Index = 0; Index < Inputs.Num(); Index++)
 		{
 			FPin& Input = Inputs[Index];
-			if (Input.FunctionType == FunctionInput_StaticBool)
+			if (Input.FunctionInputType == FunctionInput_StaticBool)
 			{
 				continue;
 			}
@@ -515,6 +607,106 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunctionCode(const UHLSLMaterial
 	}
 
 	return FString::Printf(TEXT("// START %s\n\n%s\n%s\n\n// END %s\n\nreturn 0.f;\n//%s\n"), *Function.Name, *BoolDeclarations, *Code, *Function.Name, *Function.HashedString);
+}
+
+bool FHLSLMaterialFunctionGenerator::ParseDefaultValue(const FString& DefaultValue, int32 Dimension, FVector4& OutValue)
+{
+	const FString FloatPattern = R"_(\s*((?:[0-9]*[.])?[0-9]+)f?\s*)_";
+
+	const auto TryParseFloat = [&](const FString& String, float& OutFloatValue)
+	{
+		FRegexPattern RegexPattern("^" + FloatPattern + "$");
+		FRegexMatcher RegexMatcher(RegexPattern, String);
+		if (!RegexMatcher.FindNext())
+		{
+			return false;
+		}
+
+		OutFloatValue = FCString::Atof(*RegexMatcher.GetCaptureGroup(1));
+		return true;
+	};
+
+	if (Dimension == 1)
+	{
+		return TryParseFloat(DefaultValue, OutValue.X);
+	}
+	else if (Dimension == 2)
+	{
+		float SingleValue;
+		if (TryParseFloat(DefaultValue, SingleValue))
+		{
+			OutValue.X = SingleValue;
+			OutValue.Y = SingleValue;
+
+			return true;
+		}
+
+		FRegexPattern RegexPattern("^float2\\("+ FloatPattern + "," + FloatPattern + "\\)$");
+		FRegexMatcher RegexMatcher(RegexPattern, DefaultValue);
+		if (!RegexMatcher.FindNext())
+		{
+			return false;
+		}
+
+		OutValue.X = FCString::Atof(*RegexMatcher.GetCaptureGroup(1));
+		OutValue.Y = FCString::Atof(*RegexMatcher.GetCaptureGroup(2));
+
+		return true;
+	}
+	else if (Dimension == 3)
+	{
+		float SingleValue;
+		if (TryParseFloat(DefaultValue, SingleValue))
+		{
+			OutValue.X = SingleValue;
+			OutValue.Y = SingleValue;
+			OutValue.Z = SingleValue;
+
+			return true;
+		}
+
+		FRegexPattern RegexPattern("^float3\\("+ FloatPattern + "," + FloatPattern + "," + FloatPattern + "\\)$");
+		FRegexMatcher RegexMatcher(RegexPattern, DefaultValue);
+		if (!RegexMatcher.FindNext())
+		{
+			return false;
+		}
+
+		OutValue.X = FCString::Atof(*RegexMatcher.GetCaptureGroup(1));
+		OutValue.Y = FCString::Atof(*RegexMatcher.GetCaptureGroup(2));
+		OutValue.Z = FCString::Atof(*RegexMatcher.GetCaptureGroup(3));
+
+		return true;
+	}
+	else
+	{
+		check(Dimension == 4);
+
+		float SingleValue;
+		if (TryParseFloat(DefaultValue, SingleValue))
+		{
+			OutValue.X = SingleValue;
+			OutValue.Y = SingleValue;
+			OutValue.Z = SingleValue;
+
+			OutValue.Z = SingleValue;
+			return true;
+		}
+
+		FRegexPattern RegexPattern("^float4\\("+ FloatPattern + "," + FloatPattern + "," + FloatPattern + "," + FloatPattern + "\\)$");
+		FRegexMatcher RegexMatcher(RegexPattern, DefaultValue);
+		if (!RegexMatcher.FindNext())
+		{
+			return false;
+		}
+
+		OutValue.X = FCString::Atof(*RegexMatcher.GetCaptureGroup(1));
+		OutValue.Y = FCString::Atof(*RegexMatcher.GetCaptureGroup(2));
+		OutValue.Z = FCString::Atof(*RegexMatcher.GetCaptureGroup(3));
+		OutValue.W = FCString::Atof(*RegexMatcher.GetCaptureGroup(4));
+
+		return true;
+	}
 }
 
 IMaterialEditor* FHLSLMaterialFunctionGenerator::FindMaterialEditorForAsset(UObject* InAsset)

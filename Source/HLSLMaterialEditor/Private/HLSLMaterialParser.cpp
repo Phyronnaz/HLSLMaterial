@@ -26,6 +26,7 @@ FString FHLSLMaterialParser::Parse(
 	EScope Scope = EScope::Global;
 	int32 Index = 0;
 	int32 ScopeDepth = 0;
+	int32 ArgScopeDepth = 0;
 	int32 LineNumber = 0;
 
 	// Simplify line breaks handling
@@ -44,6 +45,9 @@ FString FHLSLMaterialParser::Parse(
 		{
 		case EScope::Global:
 		{
+			ensure(ScopeDepth == 0);
+			ensure(ArgScopeDepth == 0);
+
 			if (FChar::IsLinebreak(Char))
 			{
 				// Clear any pending comment when there's an empty line with no //
@@ -124,13 +128,26 @@ FString FHLSLMaterialParser::Parse(
 			}
 
 			Scope = EScope::FunctionArgs;
+
+			ensure(ArgScopeDepth == 0);
+			ArgScopeDepth++;
 		}
 		break;
 		case EScope::FunctionArgs:
 		{
-			if (Char != TEXT(')'))
+			if (Char == TEXT(')'))
 			{
-				if (Char == TEXT(','))
+				ArgScopeDepth--;
+				ensure(ArgScopeDepth >= 0);
+			}
+			else if (Char == TEXT('('))
+			{
+				ArgScopeDepth++;
+			}
+
+			if (ArgScopeDepth > 0)
+			{
+				if (Char == TEXT(',') && ArgScopeDepth == 1)
 				{
 					OutFunctions.Last().Arguments.Emplace();
 				}
@@ -146,6 +163,7 @@ FString FHLSLMaterialParser::Parse(
 				continue;
 			}
 
+			ensure(ArgScopeDepth == 0);
 			Scope = EScope::FunctionBodyStart;
 		}
 		break;
@@ -218,6 +236,8 @@ FString FHLSLMaterialParser::Parse(
 	{
 		return TEXT("Parsing error");
 	}
+	ensure(ScopeDepth == 0);
+	ensure(ArgScopeDepth == 0);
 
 	return {};
 }
