@@ -165,6 +165,15 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 				}
 			}
 		}
+		else if (Type == "int")
+		{
+			Pin.FunctionInputType = FunctionInput_Scalar;
+
+			if (!DefaultValue.IsEmpty() && !ParseDefaultValue(DefaultValue, 1, Pin.DefaultValueVector))
+			{
+				return DefaultValueError;
+			}
+		}
 		else if (Type == "float")
 		{
 			Pin.FunctionInputType = FunctionInput_Scalar;
@@ -481,10 +490,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		}
 		for (const FPin& Input : Inputs)
 		{
-			if (Input.bIsConst)
-			{
-				Declarations += "const " + Input.Type + " " + Input.Name + " = const_" + Input.Name + ";";
-			}
+			Declarations += (Input.bIsConst ? "const " : "") + Input.Type + " " + Input.Name + " = " + Input.Type + "(INTERNAL_IN_" + Input.Name + ");\n";
 		}
 
 		UMaterialExpressionCustom* MaterialExpressionCustom = NewObject<UMaterialExpressionCustom>(MaterialFunction);
@@ -508,7 +514,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			}
 
 			FCustomInput& CustomInput = MaterialExpressionCustom->Inputs.Emplace_GetRef();
-			CustomInput.InputName = *(Input.bIsConst ? "const_" + Input.Name : Input.Name);
+			CustomInput.InputName = *("INTERNAL_IN_" + Input.Name);
 			CustomInput.Input.Connect(0, FunctionInputs[Index]);
 		}
 		for (int32 Index = 0; Index < Outputs.Num(); Index++)

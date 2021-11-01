@@ -20,7 +20,7 @@ public:
 		FMaterialUpdateContext& UpdateContext);
 
 private:
-	static FString GenerateFunctionCode(const UHLSLMaterialFunctionLibrary& Library, const FHLSLMaterialFunction& Function, const FString& BoolDeclarations);
+	static FString GenerateFunctionCode(const UHLSLMaterialFunctionLibrary& Library, const FHLSLMaterialFunction& Function, const FString& Declarations);
 	static bool ParseDefaultValue(const FString& DefaultValue, int32 Dimension, FVector4& OutValue);
 
 	static IMaterialEditor* FindMaterialEditorForAsset(UObject* InAsset);
