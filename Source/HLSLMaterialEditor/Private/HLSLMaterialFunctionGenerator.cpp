@@ -2,6 +2,7 @@
 
 #include "HLSLMaterialFunctionGenerator.h"
 #include "HLSLMaterialFunction.h"
+#include "HLSLMaterialMessages.h"
 #include "HLSLMaterialUtilities.h"
 #include "HLSLMaterialErrorHook.h"
 #include "HLSLMaterialFunctionLibrary.h"
@@ -22,7 +23,10 @@
 #include "Materials/MaterialExpressionStaticSwitch.h"
 #include "Materials/MaterialExpressionFunctionInput.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
+#include "Materials/MaterialExpressionScalarParameter.h"
+#include "Materials/MaterialExpressionVectorParameter.h"
 #include "Materials/MaterialExpressionTextureCoordinate.h"
+#include "Materials/MaterialExpressionTextureObjectParameter.h"
 
 FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 	UHLSLMaterialFunctionLibrary& Library,
@@ -82,19 +86,6 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		}
 	}
 
-	struct FPin
-	{
-		FString Name;
-		FString Type;
-		FString ToolTip;
-		bool bIsConst = false;
-		EFunctionInputType FunctionInputType = {};
-		TOptional<ECustomMaterialOutputType> CustomOutputType;
-
-		FString DefaultValueText;
-		bool bDefaultValueBool = false;
-		FVector4 DefaultValueVector{ ForceInit };
-	};
 	TArray<FPin> Inputs;
 	TArray<FPin> Outputs;
 
@@ -105,18 +96,19 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 
 	for (const FString& Argument : Function.Arguments)
 	{
-		FRegexPattern RegexPattern(R"_(^\s*(?:(const\s+)?|(out\s+)?)(\w*)\s+(\w*)(?:\s*=\s*(.+))?\s*$)_");
+		FRegexPattern RegexPattern(R"_(^\s*(?:\[(.*)\])?\s*(?:(const\s+)?|(out\s+)?)(\w*)\s+(\w*)(?:\s*=\s*(.+))?\s*$)_");
 		FRegexMatcher RegexMatcher(RegexPattern, Argument);
 		if (!RegexMatcher.FindNext())
 		{
 			return "Invalid arguments syntax";
 		}
 
-		const bool bIsConst = !RegexMatcher.GetCaptureGroup(1).IsEmpty();
-		const bool bIsOutput = !RegexMatcher.GetCaptureGroup(2).IsEmpty();
-		const FString Type = RegexMatcher.GetCaptureGroup(3);
-		const FString Name = RegexMatcher.GetCaptureGroup(4);
-		const FString DefaultValue = RegexMatcher.GetCaptureGroup(5);
+		const FString Metadata = RegexMatcher.GetCaptureGroup(1);
+		const bool bIsConst = !RegexMatcher.GetCaptureGroup(2).IsEmpty();
+		const bool bIsOutput = !RegexMatcher.GetCaptureGroup(3).IsEmpty();
+		const FString Type = RegexMatcher.GetCaptureGroup(4);
+		const FString Name = RegexMatcher.GetCaptureGroup(5);
+		const FString DefaultValue = RegexMatcher.GetCaptureGroup(6);
 
 		if ((Type == "FMaterialPixelParameters" || Type == "FMaterialVertexParameters") &&
 			Name == "Parameters")
@@ -137,180 +129,41 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			continue;
 		}
 
-		FPin Pin;
-		Pin.Name = Name;
-		Pin.Type = Type;
-		Pin.bIsConst = bIsConst;
-		Pin.DefaultValueText = DefaultValue;
+		FPin& Pin = (bIsOutput ? Outputs : Inputs).Emplace_GetRef(FPin(
+			Name, 
+			Type,
+			bIsConst, 
+			bIsOutput, 
+			DefaultValue, 
+			GenerateTooltip(Name, Function.Comment), 
+			GenerateMetadata(Metadata)));
 
-		const FString DefaultValueError = Name + ": invalid default value for type " + Type + ": " + DefaultValue;
+		const FString Error = Pin.ParseTypeAndDefaultValue();
+		if (!Error.IsEmpty())
+		{
+			return Error;
+		}
 		
-		if (Type == "bool")
+		if (Pin.Metadata.Contains(META_Expose))
 		{
-			Pin.FunctionInputType = FunctionInput_StaticBool;
-
-			if (!DefaultValue.IsEmpty())
+			switch (Pin.FunctionInputType)
 			{
-				if (DefaultValue == "true")
-				{
-					Pin.bDefaultValueBool = true;
-				}
-				else if (DefaultValue == "false")
-				{
-					Pin.bDefaultValueBool = false;
-				}
-				else
-				{
-					return DefaultValueError;
-				}
-			}
-		}
-		else if (Type == "int")
-		{
-			Pin.FunctionInputType = FunctionInput_Scalar;
-
-			if (!DefaultValue.IsEmpty() && !ParseDefaultValue(DefaultValue, 1, Pin.DefaultValueVector))
-			{
-				return DefaultValueError;
-			}
-		}
-		else if (Type == "float")
-		{
-			Pin.FunctionInputType = FunctionInput_Scalar;
-			Pin.CustomOutputType = CMOT_Float1;
-
-			if (!DefaultValue.IsEmpty() && !ParseDefaultValue(DefaultValue, 1, Pin.DefaultValueVector))
-			{
-				return DefaultValueError;
-			}
-		}
-		else if (Type == "float2")
-		{
-			Pin.FunctionInputType = FunctionInput_Vector2;
-			Pin.CustomOutputType = CMOT_Float2;
-			
-			if (!DefaultValue.IsEmpty() && !ParseDefaultValue(DefaultValue, 2, Pin.DefaultValueVector))
-			{
-				return DefaultValueError;
-			}
-		}
-		else if (Type == "float3")
-		{
-			Pin.FunctionInputType = FunctionInput_Vector3;
-			Pin.CustomOutputType = CMOT_Float3;
-			
-			if (!DefaultValue.IsEmpty() && !ParseDefaultValue(DefaultValue, 3, Pin.DefaultValueVector))
-			{
-				return DefaultValueError;
-			}
-		}
-		else if (Type == "float4")
-		{
-			Pin.FunctionInputType = FunctionInput_Vector4;
-			Pin.CustomOutputType = CMOT_Float4;
-			
-			if (!DefaultValue.IsEmpty() && !ParseDefaultValue(DefaultValue, 4, Pin.DefaultValueVector))
-			{
-				return DefaultValueError;
-			}
-		}
-		else if (Type == "Texture2D")
-		{
-			Pin.FunctionInputType = FunctionInput_Texture2D;
-			
-			if (!DefaultValue.IsEmpty())
-			{
-				return DefaultValueError;
-			}
-		}
-		else if (Type == "TextureCube")
-		{
-			Pin.FunctionInputType = FunctionInput_TextureCube;
-			
-			if (!DefaultValue.IsEmpty())
-			{
-				return DefaultValueError;
-			}
-		}
-		else if (Type == "Texture2DArray")
-		{
-			Pin.FunctionInputType = FunctionInput_Texture2DArray;
-			
-			if (!DefaultValue.IsEmpty())
-			{
-				return DefaultValueError;
-			}
-		}
-		else if (Type == "TextureExternal")
-		{
-			Pin.FunctionInputType = FunctionInput_TextureExternal;
-			
-			if (!DefaultValue.IsEmpty())
-			{
-				return DefaultValueError;
-			}
-		}
-		else if (Type == "Texture3D")
-		{
-			Pin.FunctionInputType = FunctionInput_VolumeTexture;
-			
-			if (!DefaultValue.IsEmpty())
-			{
-				return DefaultValueError;
-			}
-		}
-		else
-		{
-			return "Invalid argument type: " + Type;
-		}
-
-		if (bIsOutput && !Pin.CustomOutputType.IsSet())
-		{
-			return "Invalid argument type for an output: " + Type;
-		}
-
-		int32 Index = 0;
-		while (Index < Function.Comment.Len())
-		{
-			Index = Function.Comment.Find(TEXT("@param"), ESearchCase::IgnoreCase, ESearchDir::FromStart, Index);
-			if (Index == -1)
-			{
+			case FunctionInput_Scalar:
+			case FunctionInput_Vector4:
+			case FunctionInput_Texture2D:
+			case FunctionInput_TextureCube:
+			case FunctionInput_Texture2DArray:
+			case FunctionInput_VolumeTexture:
+			case FunctionInput_TextureExternal:
 				break;
+
+			case FunctionInput_Vector2:
+			case FunctionInput_Vector3:
+			case FunctionInput_StaticBool:
+			default:
+				return "Cannot expose type " + Pin.Type + " as a parameter";
 			}
-
-			Index += FString(TEXT("@param")).Len();
-
-			while (Index < Function.Comment.Len() && FChar::IsWhitespace(Function.Comment[Index]))
-			{
-				Index++;
-			}
-
-			FString ParamName;
-			while (Index < Function.Comment.Len() && !FChar::IsWhitespace(Function.Comment[Index]))
-			{
-				ParamName += Function.Comment[Index++];
-			}
-
-			if (ParamName != Name)
-			{
-				continue;
-			}
-
-			while (Index < Function.Comment.Len() && FChar::IsWhitespace(Function.Comment[Index]))
-			{
-				Index++;
-			}
-
-			while (Index < Function.Comment.Len() && !FChar::IsLinebreak(Function.Comment[Index]))
-			{
-				Pin.ToolTip += Function.Comment[Index++];
-			}
-			Pin.ToolTip.TrimStartAndEndInline();
-
-			break;
 		}
-
-		(bIsOutput ? Outputs : Inputs).Add(Pin);
 	}
 
 	// Detect used texture coordinates
@@ -330,6 +183,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 
 	TMap<FName, FGuid> FunctionInputGuids;
 	TMap<FName, FGuid> FunctionOutputGuids;
+	TMap<FName, FGuid> ParameterGuids;
 	for (UMaterialExpression* Expression : MaterialFunction->FunctionExpressions)
 	{
 		if (UMaterialExpressionFunctionInput* FunctionInput = Cast<UMaterialExpressionFunctionInput>(Expression))
@@ -339,6 +193,10 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		if (UMaterialExpressionFunctionOutput* FunctionOutput = Cast<UMaterialExpressionFunctionOutput>(Expression))
 		{
 			FunctionOutputGuids.Add(FunctionOutput->OutputName, FunctionOutput->Id);
+		}
+		if (UMaterialExpressionParameter* Parameter = Cast<UMaterialExpressionParameter>(Expression))
+		{
+			FunctionOutputGuids.Add(Parameter->ParameterName, Parameter->ExpressionGUID);
 		}
 	}
 	MaterialFunction->FunctionExpressions.Empty();
@@ -397,10 +255,70 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		}
 	}
 
-	TArray<UMaterialExpressionFunctionInput*> FunctionInputs;
+	TArray<UMaterialExpression*> FunctionInputs;
 	for (int32 Index = 0; Index < Inputs.Num(); Index++)
 	{
 		const FPin& Input = Inputs[Index];
+		if (Input.Metadata.Contains(META_Expose))
+		{
+			const auto SetupExpression = [&](auto* Expression)
+			{
+				Expression->MaterialExpressionGuid = FGuid::NewGuid();
+				Expression->ExpressionGUID = ParameterGuids.FindRef(*Input.Name);
+				if (!Expression->ExpressionGUID.IsValid())
+				{
+					Expression->ExpressionGUID = FGuid::NewGuid();
+				}
+				Expression->SortPriority = 32;
+				Expression->ParameterName = *Input.Name;
+				Expression->Group = *Input.Metadata.FindRef(META_Category);
+				Expression->bCollapsed = true;
+				Expression->MaterialExpressionEditorX = 0;
+				Expression->MaterialExpressionEditorY = 200 * Index;
+
+				FunctionInputs.Add(Expression);
+				MaterialFunction->FunctionExpressions.Add(Expression);
+			};
+
+			switch (Input.FunctionInputType)
+			{
+			case FunctionInput_Scalar:
+			{
+				UMaterialExpressionScalarParameter* Expression = NewObject<UMaterialExpressionScalarParameter>(MaterialFunction);
+				SetupExpression(Expression);
+				
+				if (!Input.DefaultValue.IsEmpty())
+				{
+					Expression->DefaultValue = Input.DefaultValueVector.X;
+				}
+			}
+			break;
+			case FunctionInput_Vector4:
+			{
+				UMaterialExpressionVectorParameter* Expression = NewObject<UMaterialExpressionVectorParameter>(MaterialFunction);
+				SetupExpression(Expression);
+				
+				if (!Input.DefaultValue.IsEmpty())
+				{
+					Expression->DefaultValue = FLinearColor(Input.DefaultValueVector);
+				}
+			}
+			break;
+			case FunctionInput_Texture2D:
+			case FunctionInput_TextureCube:
+			case FunctionInput_Texture2DArray:
+			case FunctionInput_VolumeTexture:
+			case FunctionInput_TextureExternal:
+			{
+				UMaterialExpressionTextureObjectParameter* Expression = NewObject<UMaterialExpressionTextureObjectParameter>(MaterialFunction);
+				SetupExpression(Expression);
+
+			}
+			break;
+			default: check(false);
+			}
+			continue;
+		}
 
 		UMaterialExpressionFunctionInput* Expression = NewObject<UMaterialExpressionFunctionInput>(MaterialFunction);
 		Expression->MaterialExpressionGuid = FGuid::NewGuid();
@@ -420,7 +338,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		FunctionInputs.Add(Expression);
 		MaterialFunction->FunctionExpressions.Add(Expression);
 
-		if (!Input.DefaultValueText.IsEmpty())
+		if (!Input.DefaultValue.IsEmpty())
 		{
 			Expression->bUsePreviewValueAsDefault = true;
 
@@ -428,8 +346,8 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			{
 				Expression->Description += "\n";
 			}
-			Expression->Description += "Default Value = " + Input.DefaultValueText;
-			Expression->InputName = *(Input.Name + " ( = " + Input.DefaultValueText + ")");
+			Expression->Description += "Default Value = " + Input.DefaultValue;
+			Expression->InputName = *(Input.Name + " ( = " + Input.DefaultValue + ")");
 
 			if (Input.FunctionInputType == FunctionInput_StaticBool)
 			{
@@ -669,6 +587,137 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
+FString FHLSLMaterialFunctionGenerator::FPin::ParseTypeAndDefaultValue()
+{
+	const FString DefaultValueError = Name + ": invalid default value for type " + Type + ": " + DefaultValue;
+
+	if (Type == "bool")
+	{
+		FunctionInputType = FunctionInput_StaticBool;
+
+		if (!DefaultValue.IsEmpty())
+		{
+			if (DefaultValue == "true")
+			{
+				bDefaultValueBool = true;
+			}
+			else if (DefaultValue == "false")
+			{
+				bDefaultValueBool = false;
+			}
+			else
+			{
+				return DefaultValueError;
+			}
+		}
+	}
+	else if (Type == "int" || Type == "uint")
+	{
+		FunctionInputType = FunctionInput_Scalar;
+
+		if (!DefaultValue.IsEmpty() && !ParseDefaultValue(DefaultValue, 1, DefaultValueVector))
+		{
+			return DefaultValueError;
+		}
+	}
+	else if (Type == "float")
+	{
+		FunctionInputType = FunctionInput_Scalar;
+		CustomOutputType = CMOT_Float1;
+
+		if (!DefaultValue.IsEmpty() && !ParseDefaultValue(DefaultValue, 1, DefaultValueVector))
+		{
+			return DefaultValueError;
+		}
+	}
+	else if (Type == "float2")
+	{
+		FunctionInputType = FunctionInput_Vector2;
+		CustomOutputType = CMOT_Float2;
+		
+		if (!DefaultValue.IsEmpty() && !ParseDefaultValue(DefaultValue, 2, DefaultValueVector))
+		{
+			return DefaultValueError;
+		}
+	}
+	else if (Type == "float3")
+	{
+		FunctionInputType = FunctionInput_Vector3;
+		CustomOutputType = CMOT_Float3;
+		
+		if (!DefaultValue.IsEmpty() && !ParseDefaultValue(DefaultValue, 3, DefaultValueVector))
+		{
+			return DefaultValueError;
+		}
+	}
+	else if (Type == "float4")
+	{
+		FunctionInputType = FunctionInput_Vector4;
+		CustomOutputType = CMOT_Float4;
+		
+		if (!DefaultValue.IsEmpty() && !ParseDefaultValue(DefaultValue, 4, DefaultValueVector))
+		{
+			return DefaultValueError;
+		}
+	}
+	else if (Type == "Texture2D")
+	{
+		FunctionInputType = FunctionInput_Texture2D;
+		
+		if (!DefaultValue.IsEmpty())
+		{
+			return DefaultValueError;
+		}
+	}
+	else if (Type == "TextureCube")
+	{
+		FunctionInputType = FunctionInput_TextureCube;
+		
+		if (!DefaultValue.IsEmpty())
+		{
+			return DefaultValueError;
+		}
+	}
+	else if (Type == "Texture2DArray")
+	{
+		FunctionInputType = FunctionInput_Texture2DArray;
+		
+		if (!DefaultValue.IsEmpty())
+		{
+			return DefaultValueError;
+		}
+	}
+	else if (Type == "TextureExternal")
+	{
+		FunctionInputType = FunctionInput_TextureExternal;
+		
+		if (!DefaultValue.IsEmpty())
+		{
+			return DefaultValueError;
+		}
+	}
+	else if (Type == "Texture3D")
+	{
+		FunctionInputType = FunctionInput_VolumeTexture;
+		
+		if (!DefaultValue.IsEmpty())
+		{
+			return DefaultValueError;
+		}
+	}
+	else
+	{
+		return "Invalid argument type: " + Type;
+	}
+
+	if (bIsOutput && !CustomOutputType.IsSet())
+	{
+		return "Invalid argument type for an output: " + Type;
+	}
+
+	return {};
+}
+
 FString FHLSLMaterialFunctionGenerator::GenerateFunctionCode(const UHLSLMaterialFunctionLibrary& Library, const FHLSLMaterialFunction& Function, const FString& Declarations)
 {
 	FString Code = Function.Body.Replace(TEXT("return"), TEXT("return 0.f"));
@@ -715,9 +764,7 @@ bool FHLSLMaterialFunctionGenerator::ParseDefaultValue(const FString& DefaultVal
 		float SingleValue;
 		if (TryParseFloat(DefaultValue, SingleValue))
 		{
-			OutValue.X = SingleValue;
-			OutValue.Y = SingleValue;
-
+			OutValue = FVector4(SingleValue);
 			return true;
 		}
 
@@ -738,10 +785,7 @@ bool FHLSLMaterialFunctionGenerator::ParseDefaultValue(const FString& DefaultVal
 		float SingleValue;
 		if (TryParseFloat(DefaultValue, SingleValue))
 		{
-			OutValue.X = SingleValue;
-			OutValue.Y = SingleValue;
-			OutValue.Z = SingleValue;
-
+			OutValue = FVector4(SingleValue);
 			return true;
 		}
 
@@ -765,11 +809,7 @@ bool FHLSLMaterialFunctionGenerator::ParseDefaultValue(const FString& DefaultVal
 		float SingleValue;
 		if (TryParseFloat(DefaultValue, SingleValue))
 		{
-			OutValue.X = SingleValue;
-			OutValue.Y = SingleValue;
-			OutValue.Z = SingleValue;
-
-			OutValue.Z = SingleValue;
+			OutValue = FVector4(SingleValue);
 			return true;
 		}
 
@@ -787,6 +827,72 @@ bool FHLSLMaterialFunctionGenerator::ParseDefaultValue(const FString& DefaultVal
 
 		return true;
 	}
+}
+
+FString FHLSLMaterialFunctionGenerator::GenerateTooltip(const FString& ParamName, const FString& FunctionComment)
+{
+	FString Tooltip;
+
+	int32 Index = 0;
+	while (Index < FunctionComment.Len())
+	{
+		Index = FunctionComment.Find(TEXT("@param"), ESearchCase::IgnoreCase, ESearchDir::FromStart, Index);
+		if (Index == -1)
+		{
+			break;
+		}
+
+		Index += FString(TEXT("@param")).Len();
+
+		while (Index < FunctionComment.Len() && FChar::IsWhitespace(FunctionComment[Index]))
+		{
+			Index++;
+		}
+
+		FString CurrentParamName;
+		while (Index < FunctionComment.Len() && !FChar::IsWhitespace(FunctionComment[Index]))
+		{
+			CurrentParamName += FunctionComment[Index++];
+		}
+
+		if (CurrentParamName != ParamName)
+		{
+			continue;
+		}
+
+		while (Index < FunctionComment.Len() && FChar::IsWhitespace(FunctionComment[Index]))
+		{
+			Index++;
+		}
+
+		while (Index < FunctionComment.Len() && !FChar::IsLinebreak(FunctionComment[Index]))
+		{
+			Tooltip += FunctionComment[Index++];
+		}
+		Tooltip.TrimStartAndEndInline();
+
+		break;
+	}
+
+	return Tooltip;
+}
+
+TMap<FString, FString> FHLSLMaterialFunctionGenerator::GenerateMetadata(const FString& Metadata)
+{
+	TMap<FString, FString> Result;
+
+	FRegexPattern RegexPattern(R"_((\w+)\s*(?:=\s*((?:"[^"]*")|\w+))?\s*(?:,|$))_");
+	FRegexMatcher RegexMatcher(RegexPattern, Metadata);
+	while (RegexMatcher.FindNext())
+	{
+		const FString Key = RegexMatcher.GetCaptureGroup(1);
+		FString Value = RegexMatcher.GetCaptureGroup(2);
+		Value.RemoveFromStart(TEXT("\""));
+		Value.RemoveFromEnd(TEXT("\""));
+		Result.Add(Key, Value);
+	}
+
+	return Result;
 }
 
 IMaterialEditor* FHLSLMaterialFunctionGenerator::FindMaterialEditorForAsset(UObject* InAsset)
