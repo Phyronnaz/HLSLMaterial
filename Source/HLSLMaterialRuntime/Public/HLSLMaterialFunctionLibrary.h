@@ -59,7 +59,10 @@ public:
 	// If compilation is taking forever for you, consider turning this off
 	UPROPERTY(EditAnywhere, Category = "Config")
 	bool bAccurateErrors = true;
-	
+
+	UPROPERTY(EditAnywhere, Category = "Config")
+	TArray<FText> Categories = { NSLOCTEXT("MaterialExpression", "Misc", "Misc") };
+
 	UPROPERTY(EditAnywhere, Category = "Generated")
 	TArray<TSoftObjectPtr<UMaterialFunction>> MaterialFunctions;
 #endif

@@ -354,6 +354,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 	}
 
 	MaterialFunction->bExposeToLibrary = true;
+	MaterialFunction->LibraryCategoriesText = Library.Categories;
 
 	ON_SCOPE_EXIT
 	{
