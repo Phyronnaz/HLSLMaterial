@@ -13,6 +13,11 @@ Demo: https://twitter.com/phyronnaz/status/1452553917204733953
 * Comment support: comments are parsed & pin tooltips are set accordingly
 * Smart updates: only modified functions are updated
 * Texture parameters support
+* Bool parameters support
+* Define support
+* Includes support (with auto updates when included files are edited)
+* Default value support
+* Clickable errors: errors are properly displayed relative to your file(s), and clicking them will open your IDE
 
 ## Installing from source
 Download the repo as a zip or download a [release](https://github.com/Phyronnaz/HLSLMaterial/releases) with prebuilt binaries, and extract it under your project Plugins folder so you have `YourProject/Plugins/HLSLMaterial/HLSLMaterial.uplugin`
@@ -55,6 +60,24 @@ void RaySphereIntersect(float3 RayOrigin, float3 RayDirection, float3 SphereCent
     {
       Distance = (-b - sqrt(Discriminant)) / 2 * a;
     }
+}
+
+#define BLUE 1
+
+void Test(
+    out float3 Color,
+    float Red = 1.f,
+    bool Green = false,
+    Texture2D Texture,
+    SamplerState TextureSampler,
+    FMaterialPixelParameters Parameters)
+{
+    Color.r = Red;
+    Color.g = Green ? 1 : 0;
+    Color.b = BLUE;
+
+    const float2 UVs = GetSceneTextureUV(Parameters);
+    Color = Texture2DSample(Texture, TextureSampler, UVs);
 }
 ```
 
