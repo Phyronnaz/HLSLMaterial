@@ -490,7 +490,39 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		}
 		for (const FPin& Input : Inputs)
 		{
-			Declarations += (Input.bIsConst ? "const " : "") + Input.Type + " " + Input.Name + " = " + Input.Type + "(INTERNAL_IN_" + Input.Name + ");\n";
+			FString Cast;
+
+			switch (Input.FunctionInputType)
+			{
+			case FunctionInput_Scalar:
+			case FunctionInput_Vector2:
+			case FunctionInput_Vector3:
+			case FunctionInput_Vector4:
+			{
+				// Cast float to int if needed
+				Cast = Input.Type;
+			}
+			break;
+			case FunctionInput_Texture2D:
+			case FunctionInput_TextureCube:
+			case FunctionInput_Texture2DArray:
+			case FunctionInput_VolumeTexture:
+			case FunctionInput_TextureExternal:
+			{
+				Declarations += (Input.bIsConst ? "const SamplerState " : "SamplerState ") + Input.Name + "Sampler" + " = INTERNAL_IN_" + Input.Name + "Sampler;\n";
+			}
+			break;
+			case FunctionInput_StaticBool:
+			case FunctionInput_MaterialAttributes:
+			{
+				// Nothing to fixup
+			}
+			break;
+			case FunctionInput_MAX:
+			default:
+				ensure(false);
+			}
+			Declarations += (Input.bIsConst ? "const " : "") + Input.Type + " " + Input.Name + " = " + Cast + "(INTERNAL_IN_" + Input.Name + ");\n";
 		}
 
 		UMaterialExpressionCustom* MaterialExpressionCustom = NewObject<UMaterialExpressionCustom>(MaterialFunction);
