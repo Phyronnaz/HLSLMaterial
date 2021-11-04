@@ -1,7 +1,8 @@
 ﻿// Copyright 2021 Phyronnaz
 
 #include "HLSLMaterialShaderInfo.h"
-#include "HLSLMaterialUtilities.h"
+
+#if ENGINE_VERSION >= 427
 #include "IMaterialEditor.h"
 #include "IPropertyTable.h"
 #include "MaterialEditorModule.h"
@@ -370,3 +371,4 @@ void UHLSLMaterialShaderInfoLayout::PostEditChangeProperty(FPropertyChangedEvent
 
 	FFileHelper::SaveStringToFile(Text, *SaveFilenames[0]);
 }
+#endif

@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "HLSLMaterialUtilities.h"
 #include "HLSLMaterialShaderInfo.generated.h"
 
 class IMaterialEditor;
@@ -48,10 +49,13 @@ public:
 			ShaderPipeline = ShaderPipelineType->GetFName();
 		}
 	}
-
+	
+#if ENGINE_VERSION >= 427
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif
 };
 
+#if ENGINE_VERSION >= 427
 class FHLSLMaterialShaderInfo
 {
 public:
@@ -72,3 +76,4 @@ public:
 	static void SetupMaterialEditor(IMaterialEditor& MaterialEditor);
 	static FLayout GetLayout(const FMaterial& Material);
 };
+#endif
