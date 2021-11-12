@@ -33,17 +33,15 @@ void FHLSLMaterialFunctionLibraryEditor::Register()
 {
 	IHLSLMaterialEditorInterface::StaticInterface = new FHLSLMaterialEditorInterfaceImpl();
 
-	// Delay to ensure the editor is fully loaded before searching for assets
-	FHLSLMaterialUtilities::DelayedCall([]
+	IAssetRegistry& AssetRegistry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get();
+	AssetRegistry.OnFilesLoaded().AddLambda([&AssetRegistry]
 	{
-		const FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
-
 		// Force load all libraries that have bGenerateOnFileChange, to start their watchers
 		TArray<FAssetData> AssetDatas;
 		FARFilter Filer;
 		Filer.ClassNames.Add(UHLSLMaterialFunctionLibrary::StaticClass()->GetFName());
 		Filer.TagsAndValues.Add(GET_MEMBER_NAME_CHECKED(UHLSLMaterialFunctionLibrary, bUpdateOnFileChange), FString("true"));
-		AssetRegistryModule.Get().GetAssets(Filer, AssetDatas);
+		AssetRegistry.GetAssets(Filer, AssetDatas);
 
 		for (const FAssetData& AssetData : AssetDatas)
 		{
