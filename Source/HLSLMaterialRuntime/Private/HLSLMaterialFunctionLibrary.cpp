@@ -15,10 +15,11 @@ FString UHLSLMaterialFunctionLibrary::GetFilePath(const FString& InFilePath)
 	FString FullPath;
 
 	if (
-		// Try to convert from a virtual content path, eg /Game/Smthg
-		!FPackageName::TryConvertLongPackageNameToFilename(InFilePath, FullPath) &&
 		// Try to convert from a virtual shader path, eg /Plugin/Smthg
-		!TryConvertShaderPathToFilename(InFilePath, FullPath))
+		// Give priority to shader paths
+		!TryConvertShaderPathToFilename(InFilePath, FullPath) &&
+		// Try to convert from a virtual content path, eg /Game/Smthg
+		!FPackageName::TryConvertLongPackageNameToFilename(InFilePath, FullPath))
 	{
 		FullPath = InFilePath;
 	}
