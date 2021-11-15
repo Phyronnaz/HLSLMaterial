@@ -24,6 +24,8 @@ Download the repo as a zip or download a [release](https://github.com/Phyronnaz/
 
 Visual Studio will be required if you don't download a prebuilt release.
 
+NOTE: releases aren't updated often, if you encounter bugs try grabbing the master branch directly.
+
 ## How to
 * Create a new `HLSL Material Function Library` (right click Content Browser -> Material & Textures). This asset will be the link between your hlsl file and all the generated material functions.
 * Set the `File` on it to point to your HLSL file
