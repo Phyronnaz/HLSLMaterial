@@ -8,6 +8,12 @@
 
 class IMaterialEditor;
 
+#if ENGINE_VERSION >= 427 && ENGINE_MAJOR_VERSION < 5
+#define ENABLE_PERMUTATION_WINDOW 1
+#else
+#define ENABLE_PERMUTATION_WINDOW 0
+#endif
+
 UCLASS(Transient, Within=MaterialInterface)
 class UHLSLMaterialShaderInfoLayout : public UObject
 {
@@ -50,12 +56,12 @@ public:
 		}
 	}
 	
-#if ENGINE_VERSION >= 427
+#if ENABLE_PERMUTATION_WINDOW
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
 };
 
-#if ENGINE_VERSION >= 427
+#if ENABLE_PERMUTATION_WINDOW
 class FHLSLMaterialShaderInfo
 {
 public:

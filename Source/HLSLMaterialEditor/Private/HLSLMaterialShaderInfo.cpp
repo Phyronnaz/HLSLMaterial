@@ -2,7 +2,7 @@
 
 #include "HLSLMaterialShaderInfo.h"
 
-#if ENGINE_VERSION >= 427
+#if ENABLE_PERMUTATION_WINDOW
 #include "IMaterialEditor.h"
 #include "IPropertyTable.h"
 #include "MaterialEditorModule.h"
