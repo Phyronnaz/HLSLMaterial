@@ -742,7 +742,7 @@ bool FHLSLMaterialFunctionGenerator::ParseDefaultValue(const FString& DefaultVal
 {
 	const FString FloatPattern = R"_(\s*((?:[0-9]*[.])?[0-9]*)f?\s*)_";
 
-	const auto TryParseFloat = [&](const FString& String, float& OutFloatValue)
+	const auto TryParseFloat = [&](const FString& String, auto& OutFloatValue)
 	{
 		FRegexPattern RegexPattern("^" + FloatPattern + "$");
 		FRegexMatcher RegexMatcher(RegexPattern, String);
