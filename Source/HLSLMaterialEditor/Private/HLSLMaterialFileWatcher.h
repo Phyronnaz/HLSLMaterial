@@ -4,11 +4,12 @@
 
 #include "CoreMinimal.h"
 #include "IDirectoryWatcher.h"
+#include "HLSLMaterialUtilities.h"
 
 class FHLSLMaterialFileWatcher
 	: public FVirtualDestructor
 	, public TSharedFromThis<FHLSLMaterialFileWatcher>
-	, public FTickerObjectBase
+	, public UE_500_SWITCH(FTickerObjectBase, FTSTickerObjectBase)
 {
 public:
 	FSimpleMulticastDelegate OnFileChanged;

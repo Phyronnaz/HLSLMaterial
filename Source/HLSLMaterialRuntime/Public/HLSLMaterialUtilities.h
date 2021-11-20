@@ -16,6 +16,18 @@ HLSLMATERIALRUNTIME_API DECLARE_LOG_CATEGORY_EXTERN(LogHLSLMaterial, Log, All);
 
 #define ENGINE_VERSION (ENGINE_MAJOR_VERSION * 100 + ENGINE_MINOR_VERSION)
 
+#ifndef HLSL_MATERIAL_UE5_EA
+#define HLSL_MATERIAL_UE5_EA 0
+#endif
+
+#if ENGINE_VERSION >= 500 && !HLSL_MATERIAL_UE5_EA
+#define UE_500_SWITCH(Before, AfterOrEqual) AfterOrEqual
+#define UE_500_ONLY(...) __VA_ARGS__
+#else
+#define UE_500_SWITCH(Before, AfterOrEqual) Before
+#define UE_500_ONLY(...)
+#endif
+
 #define HLSL_STARTUP_FUNCTION(Phase, ...) \
 	static const FDelayedAutoRegisterHelper ANONYMOUS_VARIABLE(DelayedAutoRegisterHelper)(Phase, __VA_ARGS__);
 

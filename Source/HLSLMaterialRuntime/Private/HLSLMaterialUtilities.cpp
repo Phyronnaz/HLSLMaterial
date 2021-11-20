@@ -9,7 +9,7 @@ void FHLSLMaterialUtilities::DelayedCall(TFunction<void()> Call, float Delay)
 {
 	check(IsInGameThread());
 
-	FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([=](float)
+	UE_500_SWITCH(FTicker, FTSTicker)::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([=](float)
 	{
 		Call();
 		return false;

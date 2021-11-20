@@ -6,6 +6,8 @@
 #include "HLSLMaterialUtilities.h"
 #include "HLSLMaterialShaderInfo.generated.h"
 
+#define ENABLE_PERMUTATION_WINDOW (ENGINE_VERSION == 427)
+
 class IMaterialEditor;
 
 UCLASS(Transient, Within=MaterialInterface)
@@ -50,12 +52,12 @@ public:
 		}
 	}
 	
-#if ENGINE_VERSION >= 427
+#if ENABLE_PERMUTATION_WINDOW
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
 };
 
-#if ENGINE_VERSION >= 427
+#if ENABLE_PERMUTATION_WINDOW
 class FHLSLMaterialShaderInfo
 {
 public:
