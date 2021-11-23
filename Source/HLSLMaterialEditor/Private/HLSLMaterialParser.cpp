@@ -4,6 +4,7 @@
 #include "HLSLMaterialFunction.h"
 #include "HLSLMaterialFunctionLibrary.h"
 #include "HLSLMaterialMessages.h"
+#include "HAL/FileManagerGeneric.h"
 #include "Internationalization/Regex.h"
 
 FString FHLSLMaterialParser::Parse(
@@ -256,7 +257,7 @@ FString FHLSLMaterialParser::Parse(
 	return {};
 }
 
-TArray<FHLSLMaterialParser::FInclude> FHLSLMaterialParser::GetIncludes(const FString& Text)
+TArray<FHLSLMaterialParser::FInclude> FHLSLMaterialParser::GetIncludes(const FString& ShaderPath, const FString& Text)
 {
 	TArray<FInclude> OutIncludes;
 
@@ -264,9 +265,24 @@ TArray<FHLSLMaterialParser::FInclude> FHLSLMaterialParser::GetIncludes(const FSt
 	FRegexMatcher RegexMatcher(RegexPattern, Text);
 	while (RegexMatcher.FindNext())
 	{
-		const FString VirtualPath = RegexMatcher.GetCaptureGroup(2);
+		FString VirtualPath = RegexMatcher.GetCaptureGroup(2);
 
 		FString DiskPath = GetShaderSourceFilePath(VirtualPath);
+
+		if (DiskPath.IsEmpty())
+		{
+			// Try going other way around.
+			// Check if path used as VirtualPath is really local path relative to shader and if it is does it map to virtual path
+			const FString VirtualToDiskFilePath = FPaths::ConvertRelativePathToFull(ShaderPath, VirtualPath);
+			const FString VirtualToDiskPath = FFileManagerGeneric::DefaultConvertToRelativePath(*FPaths::GetPath(VirtualToDiskFilePath));
+			const FString* NewVirtualPath =  AllShaderSourceDirectoryMappings().FindKey(VirtualToDiskPath);
+			if (NewVirtualPath)
+			{
+				DiskPath = VirtualToDiskFilePath;
+				VirtualPath = *NewVirtualPath / FPaths::GetCleanFilename(VirtualToDiskFilePath);
+			}
+		}
+		
 		if (DiskPath.IsEmpty())
 		{
 			FHLSLMaterialMessages::ShowError(TEXT("Failed to map include %s"), *VirtualPath);
