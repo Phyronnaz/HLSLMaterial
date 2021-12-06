@@ -45,6 +45,10 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Config", AssetRegistrySearchable)
 	bool bUpdateOnFileChange = true;
 
+	// Update the assets when any of the included files are updated
+	UPROPERTY(EditAnywhere, Category = "Config")
+	bool bUpdateOnIncludeChange = false;
+
 	// If true, functions will be put in a folder named "AssetName_GeneratedFunctions"
 	// If false they'll be generated next to this asset
 	UPROPERTY(EditAnywhere, Category = "Config")

@@ -60,14 +60,17 @@ TSharedRef<FVirtualDestructor> FHLSLMaterialFunctionLibraryEditor::CreateWatcher
 	TArray<FString> Files;
 	Files.Add(FullPath);
 
-	FString Text;
-	if (TryLoadFileToString(Text, Library.GetFilePath()))
+	if (Library.bUpdateOnIncludeChange)
 	{
-		for (const FHLSLMaterialParser::FInclude& Include : FHLSLMaterialParser::GetIncludes(FullPath, Text))
+		FString Text;
+		if (TryLoadFileToString(Text, Library.GetFilePath()))
 		{
-			if (!Include.DiskPath.IsEmpty())
+			for (const FHLSLMaterialParser::FInclude& Include : FHLSLMaterialParser::GetIncludes(FullPath, Text))
 			{
-				Files.Add(Include.DiskPath);
+				if (!Include.DiskPath.IsEmpty())
+				{
+					Files.Add(Include.DiskPath);
+				}
 			}
 		}
 	}
