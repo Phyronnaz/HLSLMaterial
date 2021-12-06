@@ -256,15 +256,26 @@ FString FHLSLMaterialParser::Parse(
 	return {};
 }
 
-TArray<FHLSLMaterialParser::FInclude> FHLSLMaterialParser::GetIncludes(const FString& Text)
+TArray<FHLSLMaterialParser::FInclude> FHLSLMaterialParser::GetIncludes(const FString& FilePath, const FString& Text)
 {
+	FString VirtualFolder;
+	if (UHLSLMaterialFunctionLibrary::TryConvertFilenameToShaderPath(FilePath, VirtualFolder))
+	{
+		VirtualFolder = FPaths::GetPath(VirtualFolder);
+	}
+
 	TArray<FInclude> OutIncludes;
 
 	FRegexPattern RegexPattern(R"_((\A|\v)\s*#include "([^"]+)")_");
 	FRegexMatcher RegexMatcher(RegexPattern, Text);
 	while (RegexMatcher.FindNext())
 	{
-		const FString VirtualPath = RegexMatcher.GetCaptureGroup(2);
+		FString VirtualPath = RegexMatcher.GetCaptureGroup(2);
+		if (!VirtualPath.StartsWith(TEXT("/")) && !VirtualFolder.IsEmpty())
+		{
+			// Relative path
+			VirtualPath = VirtualFolder / VirtualPath;
+		}
 
 		FString DiskPath = GetShaderSourceFilePath(VirtualPath);
 		if (DiskPath.IsEmpty())

@@ -85,9 +85,11 @@ private:
 
 	static void MakeRelativePath(FString& Path);
 
-private:
-	static bool TryConvertPathImpl(const TMap<FString, FString>& DirectoryMappings, const FString& InPath, FString& OutPath);
+public:
 	static bool TryConvertShaderPathToFilename(const FString& ShaderPath, FString& OutFilename);
 	static bool TryConvertFilenameToShaderPath(const FString& Filename, FString& OutShaderPath);
+
+private:
+	static bool TryConvertPathImpl(const TMap<FString, FString>& DirectoryMappings, const FString& InPath, FString& OutPath);
 #endif
 };

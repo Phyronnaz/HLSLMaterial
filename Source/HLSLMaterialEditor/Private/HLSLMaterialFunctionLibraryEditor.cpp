@@ -55,13 +55,15 @@ TSharedRef<FVirtualDestructor> FHLSLMaterialFunctionLibraryEditor::CreateWatcher
 {
 	FHLSLMaterialMessages::FLibraryScope Scope(Library);
 
+	const FString FullPath = Library.GetFilePath();
+
 	TArray<FString> Files;
-	Files.Add(Library.GetFilePath());
+	Files.Add(FullPath);
 
 	FString Text;
 	if (TryLoadFileToString(Text, Library.GetFilePath()))
 	{
-		for (const FHLSLMaterialParser::FInclude& Include : FHLSLMaterialParser::GetIncludes(Text))
+		for (const FHLSLMaterialParser::FInclude& Include : FHLSLMaterialParser::GetIncludes(FullPath, Text))
 		{
 			if (!Include.DiskPath.IsEmpty())
 			{
@@ -97,7 +99,7 @@ void FHLSLMaterialFunctionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary& 
 	
 	FString BaseHash;
 	TArray<FString> IncludeFilePaths;
-	for (const FHLSLMaterialParser::FInclude& Include : FHLSLMaterialParser::GetIncludes(Text))
+	for (const FHLSLMaterialParser::FInclude& Include : FHLSLMaterialParser::GetIncludes(FullPath, Text))
 	{
 		IncludeFilePaths.Add(Include.VirtualPath);
 

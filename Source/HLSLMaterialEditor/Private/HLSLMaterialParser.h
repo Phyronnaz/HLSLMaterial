@@ -21,6 +21,6 @@ public:
 		FString VirtualPath;
 		FString DiskPath;
 	};
-	static TArray<FInclude> GetIncludes(const FString& Text);
+	static TArray<FInclude> GetIncludes(const FString& FilePath, const FString& Text);
 	static TArray<FCustomDefine> GetDefines(const FString& Text);
 };
