@@ -28,6 +28,8 @@
 #include "Materials/MaterialExpressionTextureCoordinate.h"
 #include "Materials/MaterialExpressionTextureObjectParameter.h"
 
+#include "MaterialEditor/Private/MaterialEditor.h"
+
 FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 	UHLSLMaterialFunctionLibrary& Library,
 	const TArray<FString>& IncludeFilePaths,
@@ -573,6 +575,13 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		}
 
 		MaterialEditor->NotifyExternalMaterialChange();
+
+		UMaterialInterface* MaterialInterface = MaterialEditor->GetMaterialInterface();
+		if (MaterialInterface && MaterialInterface->IsA<UMaterial>())
+		{
+			// Enable the Apply button
+			static_cast<FMaterialEditor*>(MaterialEditor)->bMaterialDirty = true;
+		}
 	}
 	
 	FNotificationInfo Info(FText::Format(INVTEXT("{0} updated"), FText::FromString(Function.Name)));
