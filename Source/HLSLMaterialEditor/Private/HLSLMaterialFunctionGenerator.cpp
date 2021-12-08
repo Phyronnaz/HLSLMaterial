@@ -98,7 +98,18 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 
 	for (const FString& Argument : Function.Arguments)
 	{
-		FRegexPattern RegexPattern(R"_(^\s*(?:\[(.*)\])?\s*(?:(const\s+)?|(out\s+)?)(\w*)\s+(\w*)(?:\s*=\s*(.+))?\s*$)_");
+		FRegexPattern RegexPattern(""
+			R"_(^\s*)_"                      // Start
+			R"_((?:\[(.*)\])?)_"             // [Metadata]
+			R"_(\s*)_"                       // Spaces
+			R"_((?:(const\s+)?|(out\s+)?))_" // Either const or out
+			R"_((\w*))_"                     // Type
+			R"_(\s*)_"                       // Spaces
+			R"_((?:<\w+>)?)_"                // Potential (ignored) template, eg Texture2D<float>
+			R"_(\s+)_"                       // Spaces
+			R"_((\w*))_"                     // Name
+			R"_((?:\s*=\s*(.+))?)_"          // Optional default value
+			R"_(\s*$)_");                    // End
 		FRegexMatcher RegexMatcher(RegexPattern, Argument);
 		if (!RegexMatcher.FindNext())
 		{
