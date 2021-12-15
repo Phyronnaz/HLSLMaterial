@@ -117,7 +117,9 @@ void FHLSLMaterialFunctionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary& 
 		}
 	}
 
-	const TArray<FCustomDefine> AdditionalDefines = FHLSLMaterialParser::GetDefines(Text);
+	TArray<FCustomDefine> AdditionalDefines = FHLSLMaterialParser::GetDefines(Text);
+	AdditionalDefines.Add({ "ENGINE_VERSION", FString::FromInt(ENGINE_VERSION) });
+
 	for (const FCustomDefine& Define : AdditionalDefines)
 	{
 		BaseHash += FHLSLMaterialUtilities::HashString(Define.DefineName);
