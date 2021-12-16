@@ -41,7 +41,7 @@ public:
 			{
 				if (ensure(Asset.IsValid()))
 				{
-					IHLSLMaterialEditorInterface::Get().Update(*Asset);
+					IHLSLMaterialEditorInterface::Get()->Update(*Asset);
 				}
 			}
 		})));

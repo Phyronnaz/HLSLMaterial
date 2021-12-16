@@ -30,9 +30,9 @@ FString UHLSLMaterialFunctionLibrary::GetFilePath(const FString& InFilePath)
 
 void UHLSLMaterialFunctionLibrary::CreateWatcherIfNeeded()
 {
-	if (bUpdateOnFileChange)
+	if (bUpdateOnFileChange && IHLSLMaterialEditorInterface::Get())
 	{
-		Watcher = IHLSLMaterialEditorInterface::Get().CreateWatcher(*this);
+		Watcher = IHLSLMaterialEditorInterface::Get()->CreateWatcher(*this);
 	}
 }
 

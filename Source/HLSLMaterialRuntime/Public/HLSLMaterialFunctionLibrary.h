@@ -18,9 +18,9 @@ public:
 	virtual void Update(UHLSLMaterialFunctionLibrary& Library) = 0;
 
 public:
-	static IHLSLMaterialEditorInterface& Get()
+	static IHLSLMaterialEditorInterface* Get()
 	{
-		return *StaticInterface;
+		return StaticInterface;
 	}
 
 private:
