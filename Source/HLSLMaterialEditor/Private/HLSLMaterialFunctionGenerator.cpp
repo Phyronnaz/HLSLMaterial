@@ -417,7 +417,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			bool bValue = Width & (1 << Index);
 			// Invert the value, as switches take True as first pin
 			bValue = !bValue;
-			Declarations += "const bool " + Inputs[StaticBoolParameters[Index]].Name + " = " + (bValue ? "true" : "false") + ";\n";
+			Declarations += "const bool INTERNAL_IN_" + Inputs[StaticBoolParameters[Index]].Name + " = " + (bValue ? "true" : "false") + ";\n";
 		}
 		for (const FPin& Input : Inputs)
 		{
