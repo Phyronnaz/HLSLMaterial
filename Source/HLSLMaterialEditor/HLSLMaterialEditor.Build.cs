@@ -8,7 +8,7 @@ public class HLSLMaterialEditor : ModuleRules
 {
     public HLSLMaterialEditor(ReadOnlyTargetRules Target) : base(Target)
     {
-        PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
+        PCHUsage = PCHUsageMode.NoPCHs;
 
         bEnforceIWYU = true;
         bLegacyPublicIncludePaths = false;

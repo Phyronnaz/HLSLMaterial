@@ -3,6 +3,7 @@
 #include "HLSLMaterialFileWatcher.h"
 #include "HLSLMaterialUtilities.h"
 #include "DirectoryWatcherModule.h"
+#include "Modules/ModuleManager.h"
 
 TSharedRef<FHLSLMaterialFileWatcher> FHLSLMaterialFileWatcher::Create(const TArray<FString>& InFilesToWatch)
 {

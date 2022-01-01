@@ -3,9 +3,10 @@
 #include "HLSLMaterialErrorHook.h"
 #include "HLSLMaterialSettings.h"
 #include "HLSLMaterialUtilities.h"
-#include "MaterialEditorModule.h"
-#include "Internationalization/Regex.h"
 #include "HLSLMaterialFunctionLibrary.h"
+#include "MaterialEditorModule.h"
+#include "Misc/MessageDialog.h"
+#include "Internationalization/Regex.h"
 
 #define private public
 #include "MaterialEditor/Private/MaterialEditor.h"

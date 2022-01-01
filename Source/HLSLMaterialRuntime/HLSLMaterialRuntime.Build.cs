@@ -7,7 +7,7 @@ public class HLSLMaterialRuntime : ModuleRules
 {
     public HLSLMaterialRuntime(ReadOnlyTargetRules Target) : base(Target)
     {
-        PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
+        PCHUsage = PCHUsageMode.NoPCHs;
 
         bEnforceIWYU = true;
         bLegacyPublicIncludePaths = false;

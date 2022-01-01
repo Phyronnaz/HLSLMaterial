@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Launch/Resources/Version.h"
 
 struct HLSLMATERIALRUNTIME_API FHLSLMaterialUtilities
 {

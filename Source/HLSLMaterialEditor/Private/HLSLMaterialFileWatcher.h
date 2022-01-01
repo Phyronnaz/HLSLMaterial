@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "IDirectoryWatcher.h"
+#include "Containers/Ticker.h"
 #include "HLSLMaterialUtilities.h"
 
 class FHLSLMaterialFileWatcher

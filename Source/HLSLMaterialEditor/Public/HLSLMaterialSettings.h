@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Engine/EngineTypes.h"
 #include "HLSLMaterialSettings.generated.h"
 
 UCLASS(config=EditorPerProjectUserSettings)

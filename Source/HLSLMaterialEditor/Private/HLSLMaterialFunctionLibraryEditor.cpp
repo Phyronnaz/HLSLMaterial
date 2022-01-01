@@ -10,6 +10,7 @@
 #include "HLSLMaterialMessages.h"
 
 #include "Misc/FileHelper.h"
+#include "Materials/MaterialFunction.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 
 class FHLSLMaterialEditorInterfaceImpl : public IHLSLMaterialEditorInterface

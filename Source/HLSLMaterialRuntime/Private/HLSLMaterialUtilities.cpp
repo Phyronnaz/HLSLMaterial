@@ -2,6 +2,7 @@
 
 #include "HLSLMaterialUtilities.h"
 #include "Containers/Ticker.h"
+#include "Misc/SecureHash.h"
 
 DEFINE_LOG_CATEGORY(LogHLSLMaterial);
 

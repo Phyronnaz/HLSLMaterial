@@ -9,6 +9,7 @@
 #include "HLSLMaterialSettings.h"
 #include "HLSLMaterialUtilities.h"
 #include "HLSLMaterialFunctionLibrary.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 
 class FAssetTypeActions_HLSLMaterialFunctionLibrary : public FAssetTypeActions_Base
 {
@@ -29,7 +30,7 @@ public:
 	virtual UClass* GetSupportedClass() const override { return UHLSLMaterialFunctionLibrary::StaticClass(); }
 
 	virtual bool HasActions(const TArray<UObject*>&InObjects) const override { return true; }
-	virtual void GetActions(const TArray<UObject*>&InObjects, FMenuBuilder & MenuBuilder) override
+	virtual void GetActions(const TArray<UObject*>&InObjects, FMenuBuilder& MenuBuilder) override
 	{
 		MenuBuilder.AddMenuEntry(
 			INVTEXT("Update from HLSL"),
