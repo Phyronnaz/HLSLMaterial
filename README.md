@@ -5,6 +5,7 @@ Ever wanted to write complex material functions directly in HLSL? Now you can!
 Unreal Engine 4.26, 4.27 and 5.0 are supported. 4.25 cannot be supported as custom nodes have a single output in that version.
 
 Demo: https://twitter.com/phyronnaz/status/1452553917204733953
+Discord: https://discord.gg/UjtexdkWxC
 
 ## Features
 * HLSL support: write all your functions in a single hlsl file and use any of them in regular materials
