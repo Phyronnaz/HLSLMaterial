@@ -8,6 +8,8 @@ Demo: https://twitter.com/phyronnaz/status/1452553917204733953
 
 Discord: https://discord.gg/UjtexdkWxC
 
+Marketplace: https://www.unrealengine.com/marketplace/en-US/product/hlsl-material
+
 ## Features
 * HLSL support: write all your functions in a single hlsl file and use any of them in regular materials
 * Team-friendly: regular material functions are generated, so your team members don't need the plugin to use them!
