@@ -18,6 +18,7 @@ public:
 		const TArray<FString>& IncludeFilePaths,
 		const TArray<FCustomDefine>& AdditionalDefines,
 		FHLSLMaterialFunction Function,
+		TArray<FString>& Structs,
 		FMaterialUpdateContext& UpdateContext);
 
 private:
@@ -61,7 +62,7 @@ private:
 	static constexpr const TCHAR* META_Expose = TEXT("Expose");
 	static constexpr const TCHAR* META_Category = TEXT("Category");
 
-	static FString GenerateFunctionCode(const UHLSLMaterialFunctionLibrary& Library, const FHLSLMaterialFunction& Function, const FString& Declarations);
+	static FString GenerateFunctionCode(const UHLSLMaterialFunctionLibrary& Library, const FHLSLMaterialFunction& Function, const TArray<FString>& Structs, const FString& Declarations);
 	static bool ParseDefaultValue(const FString& DefaultValue, int32 Dimension, FVector4& OutValue);
 	static FString GenerateTooltip(const FString& ParamName, const FString& FunctionComment);
 	static TMap<FString, FString> GenerateMetadata(const FString& Metadata);
