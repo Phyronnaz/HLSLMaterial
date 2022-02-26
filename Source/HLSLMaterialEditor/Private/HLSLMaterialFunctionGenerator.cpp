@@ -14,6 +14,7 @@
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Widgets/Notifications/SNotificationList.h"
 #include "Framework/Notifications/NotificationManager.h"
+#include "Engine/Texture2DArray.h"
 
 #include "MaterialGraph/MaterialGraph.h"
 #include "Materials/MaterialInstanceDynamic.h"
@@ -48,19 +49,19 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		MaterialFunctionPtr = &Library.MaterialFunctions.Add_GetRef(nullptr);
 	}
 
+	FString BasePath = FPackageName::ObjectPathToPackageName(Library.GetPathName());
+	if (Library.bPutFunctionsInSubdirectory)
+	{
+		BasePath += "_GeneratedFunctions";
+	}
+	else
+	{
+		BasePath = FPaths::GetPath(BasePath);
+	}
+
 	UMaterialFunction* MaterialFunction = MaterialFunctionPtr->Get();
 	if (!MaterialFunction)
 	{
-		FString BasePath = FPackageName::ObjectPathToPackageName(Library.GetPathName());
-		if (Library.bPutFunctionsInSubdirectory)
-		{
-			BasePath += "_GeneratedFunctions";
-		}
-		else
-		{
-			BasePath = FPaths::GetPath(BasePath);
-		}
-
 		FString Error;
 		MaterialFunction = CreateAsset<UMaterialFunction>(Function.Name, BasePath, Error);
 
@@ -340,6 +341,47 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 
 				FunctionInputs.Add(Expression);
 
+				switch (Input.FunctionInputType)
+				{
+				case FunctionInput_Texture2D:
+				{
+					// Default is already a Texture2D
+				}
+				break;
+				case FunctionInput_TextureCube:
+				{
+					Expression->Texture = LoadObject<UTexture>(nullptr, TEXT("/Engine/EngineResources/DefaultTextureCube"));
+				}
+				break;
+				case FunctionInput_Texture2DArray:
+				{
+					// Hacky
+
+					UTexture2DArray* TextureArray = LoadObject<UTexture2DArray>(nullptr, *(BasePath / TEXT("DefaultTextureArray")));
+					if (!TextureArray)
+					{
+						FString Error;
+						TextureArray = CreateAsset<UTexture2DArray>("DefaultTextureArray", BasePath, Error);
+						if (!Error.IsEmpty())
+						{
+							UE_LOG(LogHLSLMaterial, Error, TEXT("Failed to create %s/DefaultTextureArray: %s"), *BasePath, *Error);
+						}
+					}
+					Expression->Texture = TextureArray;
+				}
+				break;
+				case FunctionInput_VolumeTexture:
+				{
+					Expression->Texture = LoadObject<UTexture>(nullptr, TEXT("/Engine/EngineResources/DefaultVolumeTexture"));
+				}
+				break;
+				case FunctionInput_TextureExternal:
+				{
+					// No idea what to do here
+				}
+				break;
+				default: check(false);
+				}
 			}
 			break;
 			default: check(false);
