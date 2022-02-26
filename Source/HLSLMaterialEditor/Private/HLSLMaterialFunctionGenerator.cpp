@@ -816,7 +816,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunctionCode(const UHLSLMaterial
 
 bool FHLSLMaterialFunctionGenerator::ParseDefaultValue(const FString& DefaultValue, int32 Dimension, FVector4& OutValue)
 {
-	const FString FloatPattern = R"_(\s*((?:[0-9]*[.])?[0-9]*)f?\s*)_";
+	const FString FloatPattern = R"_(\s*(-?\s*\+?\s*(?:[0-9]*[.])?[0-9]*)f?\s*)_";
 
 	const auto TryParseFloat = [&](const FString& String, auto& OutFloatValue)
 	{
