@@ -21,6 +21,7 @@
 #include "Materials/MaterialExpressionCustom.h"
 #include "Materials/MaterialExpressionStaticBool.h"
 #include "Materials/MaterialExpressionStaticSwitch.h"
+#include "Materials/MaterialExpressionAppendVector.h"
 #include "Materials/MaterialExpressionFunctionInput.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
 #include "Materials/MaterialExpressionScalarParameter.h"
@@ -289,7 +290,6 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 				Expression->MaterialExpressionEditorX = 0;
 				Expression->MaterialExpressionEditorY = 200 * Index;
 
-				FunctionInputs.Add(Expression);
 				MaterialFunction->FunctionExpressions.Add(Expression);
 			};
 
@@ -299,6 +299,8 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			{
 				UMaterialExpressionScalarParameter* Expression = NewObject<UMaterialExpressionScalarParameter>(MaterialFunction);
 				SetupExpression(Expression);
+				
+				FunctionInputs.Add(Expression);
 				
 				if (!Input.DefaultValue.IsEmpty())
 				{
@@ -310,6 +312,16 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			{
 				UMaterialExpressionVectorParameter* Expression = NewObject<UMaterialExpressionVectorParameter>(MaterialFunction);
 				SetupExpression(Expression);
+				
+				UMaterialExpressionAppendVector* AppendVector = NewObject<UMaterialExpressionAppendVector>(MaterialFunction);
+				MaterialFunction->FunctionExpressions.Add(AppendVector);
+				AppendVector->MaterialExpressionEditorX = 150;
+				AppendVector->MaterialExpressionEditorY = 200 * Index;
+
+				AppendVector->A.Connect(0, Expression);
+				AppendVector->B.Connect(4, Expression);
+
+				FunctionInputs.Add(AppendVector);
 				
 				if (!Input.DefaultValue.IsEmpty())
 				{
@@ -325,6 +337,8 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			{
 				UMaterialExpressionTextureObjectParameter* Expression = NewObject<UMaterialExpressionTextureObjectParameter>(MaterialFunction);
 				SetupExpression(Expression);
+
+				FunctionInputs.Add(Expression);
 
 			}
 			break;
