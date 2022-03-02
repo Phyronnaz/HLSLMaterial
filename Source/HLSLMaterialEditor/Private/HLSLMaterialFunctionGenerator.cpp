@@ -366,6 +366,11 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 						{
 							UE_LOG(LogHLSLMaterial, Error, TEXT("Failed to create %s/DefaultTextureArray: %s"), *BasePath, *Error);
 						}
+
+						if (TextureArray)
+						{
+							TextureArray->SourceTextures.Add(LoadObject<UTexture2D>(nullptr, TEXT("/Engine/EngineResources/DefaultTexture_Low.DefaultTexture")));
+						}
 					}
 					Expression->Texture = TextureArray;
 				}
