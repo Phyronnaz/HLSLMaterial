@@ -128,8 +128,10 @@ void FHLSLMaterialFunctionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary& 
 	}
 
 	TArray<FHLSLMaterialFunction> Functions;
+	TArray<FString> Structs;
+	
 	{
-		const FString Error = FHLSLMaterialParser::Parse(Library, Text, Functions);
+		const FString Error = FHLSLMaterialParser::Parse(Library, Text, Functions, Structs);
 		if (!Error.IsEmpty())
 		{
 			FHLSLMaterialMessages::ShowError(TEXT("Parsing failed: %s"), *Error);
@@ -151,7 +153,8 @@ void FHLSLMaterialFunctionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary& 
 			Library, 
 			IncludeFilePaths, 
 			AdditionalDefines, 
-			Function, 
+			Function,
+			Structs,
 			UpdateContext);
 
 		if (!Error.IsEmpty())

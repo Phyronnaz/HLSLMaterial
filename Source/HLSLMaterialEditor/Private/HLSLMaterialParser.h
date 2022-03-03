@@ -14,7 +14,8 @@ public:
 	static FString Parse(
 		const UHLSLMaterialFunctionLibrary& Library, 
 		FString Text, 
-		TArray<FHLSLMaterialFunction>& OutFunctions);
+		TArray<FHLSLMaterialFunction>& OutFunctions,
+		TArray<FString>& OutStructs);
 
 	struct FInclude
 	{
