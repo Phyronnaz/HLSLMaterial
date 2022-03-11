@@ -65,6 +65,9 @@ public:
 	bool bAccurateErrors = true;
 
 	UPROPERTY(EditAnywhere, Category = "Config")
+	bool bAutomaticallyApply = true;
+
+	UPROPERTY(EditAnywhere, Category = "Config")
 	TArray<FText> Categories = { NSLOCTEXT("MaterialExpression", "Misc", "Misc") };
 
 	UPROPERTY(EditAnywhere, Category = "Generated")

@@ -9,6 +9,7 @@
 
 #include "Misc/ScopeExit.h"
 #include "IMaterialEditor.h"
+#include "MaterialEditorActions.h"
 #include "AssetToolsModule.h"
 #include "Internationalization/Regex.h"
 #include "AssetRegistry/AssetRegistryModule.h"
@@ -648,6 +649,12 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		{
 			// Enable the Apply button
 			static_cast<FMaterialEditor*>(MaterialEditor)->bMaterialDirty = true;
+
+			if (Library.bAutomaticallyApply)
+			{
+				const FMaterialEditorCommands& Commands = FMaterialEditorCommands::Get();
+				MaterialEditor->GetToolkitCommands()->ExecuteAction(Commands.Apply.ToSharedRef());
+			}
 		}
 	}
 	
