@@ -93,6 +93,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 
 	TArray<FPin> Inputs;
 	TArray<FPin> Outputs;
+	FString VariableDeclarations;
 
 	if (Function.ReturnType != "void")
 	{
@@ -144,14 +145,57 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			// The Custom node will add samplers
 			continue;
 		}
+		if (Type == "float4x4")
+		{
+			if (bIsOutput)
+			{
+				return "Cannot have a float4x4 as output: " + Name;
+			}
+			if (!DefaultValue.IsEmpty())
+			{
+				return "Cannot have a default value for a float4x4 pin: " + Name;
+			}
+
+			const TMap<FString, FString> PinMetadata = GenerateMetadata(Metadata);
+			if (!PinMetadata.Contains(META_Expose))
+			{
+				return "float4x4 pins must be exposed: " + Name;
+			}
+			const FString Tooltip = GenerateTooltip(Name, Function.Comment);
+
+			for (int32 Index = 0; Index < 4; Index++)
+			{
+				FPin& Pin = Inputs.Emplace_GetRef(FPin(
+					Name + FString::FromInt(Index),
+					"float4",
+					true,
+					false,
+					true,
+					"",
+					Tooltip,
+					PinMetadata));
+
+				const FString Error = Pin.ParseTypeAndDefaultValue();
+				ensure(Error.IsEmpty());
+			}
+
+			VariableDeclarations += FString(bIsConst ? "const " : "") + "float4x4 " + Name + " = float4x4(" +
+				"INTERNAL_IN_" + Name + "0, " +
+				"INTERNAL_IN_" + Name + "1, " +
+				"INTERNAL_IN_" + Name + "2, " +
+				"INTERNAL_IN_" + Name + "3);\n";
+
+			continue;
+		}
 
 		FPin& Pin = (bIsOutput ? Outputs : Inputs).Emplace_GetRef(FPin(
-			Name, 
+			Name,
 			Type,
-			bIsConst, 
-			bIsOutput, 
-			DefaultValue, 
-			GenerateTooltip(Name, Function.Comment), 
+			bIsConst,
+			bIsOutput,
+			false,
+			DefaultValue,
+			GenerateTooltip(Name, Function.Comment),
 			GenerateMetadata(Metadata)));
 
 		const FString Error = Pin.ParseTypeAndDefaultValue();
@@ -473,16 +517,21 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 	TArray<TArray<FOutputPin>> AllOutputPins;
 	for (int32 Width = 0; Width < 1 << StaticBoolParameters.Num(); Width++)
 	{
-		FString Declarations;
 		for (int32 Index = 0; Index < StaticBoolParameters.Num(); Index++)
 		{
 			bool bValue = Width & (1 << Index);
 			// Invert the value, as switches take True as first pin
 			bValue = !bValue;
-			Declarations += "const bool INTERNAL_IN_" + Inputs[StaticBoolParameters[Index]].Name + " = " + (bValue ? "true" : "false") + ";\n";
+			VariableDeclarations += "const bool INTERNAL_IN_" + Inputs[StaticBoolParameters[Index]].Name + " = " + (bValue ? "true" : "false") + ";\n";
 		}
 		for (const FPin& Input : Inputs)
 		{
+			if (Input.bIsInternal)
+			{
+				// eg a float4x4 sub-pin
+				continue;
+			}
+
 			FString Cast;
 
 			switch (Input.FunctionInputType)
@@ -502,7 +551,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			case FunctionInput_VolumeTexture:
 			case FunctionInput_TextureExternal:
 			{
-				Declarations += (Input.bIsConst ? "const SamplerState " : "SamplerState ") + Input.Name + "Sampler" + " = INTERNAL_IN_" + Input.Name + "Sampler;\n";
+				VariableDeclarations += (Input.bIsConst ? "const SamplerState " : "SamplerState ") + Input.Name + "Sampler" + " = INTERNAL_IN_" + Input.Name + "Sampler;\n";
 			}
 			break;
 			case FunctionInput_StaticBool:
@@ -515,14 +564,14 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			default:
 				ensure(false);
 			}
-			Declarations += (Input.bIsConst ? "const " : "") + Input.Type + " " + Input.Name + " = " + Cast + "(INTERNAL_IN_" + Input.Name + ");\n";
+			VariableDeclarations += (Input.bIsConst ? "const " : "") + Input.Type + " " + Input.Name + " = " + Cast + "(INTERNAL_IN_" + Input.Name + ");\n";
 		}
 
 		UMaterialExpressionCustom* MaterialExpressionCustom = NewObject<UMaterialExpressionCustom>(MaterialFunction);
 		MaterialExpressionCustom->MaterialExpressionGuid = FGuid::NewGuid();
 		MaterialExpressionCustom->bCollapsed = true;
 		MaterialExpressionCustom->OutputType = CMOT_Float1;
-		MaterialExpressionCustom->Code = GenerateFunctionCode(Library, Function, Declarations);
+		MaterialExpressionCustom->Code = GenerateFunctionCode(Library, Function, VariableDeclarations);
 		MaterialExpressionCustom->MaterialExpressionEditorX = 500;
 		MaterialExpressionCustom->MaterialExpressionEditorY = 200 * Width;
 		MaterialExpressionCustom->IncludeFilePaths = IncludeFilePaths;

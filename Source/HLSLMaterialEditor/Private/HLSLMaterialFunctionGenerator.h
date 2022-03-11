@@ -27,6 +27,7 @@ private:
 		const FString Type;
 		const bool bIsConst;
 		const bool bIsOutput;
+		const bool bIsInternal;
 		const FString DefaultValue;
 		const FString ToolTip;
 		const TMap<FString, FString> Metadata;
@@ -36,6 +37,7 @@ private:
 			const FString& Type,
 			bool bIsConst,
 			bool bIsOutput,
+			bool bIsInternal,
 			const FString& DefaultValue,
 			const FString& ToolTip,
 			const TMap<FString, FString>& Metadata)
@@ -43,6 +45,7 @@ private:
 			, Type(Type)
 			, bIsConst(bIsConst)
 			, bIsOutput(bIsOutput)
+			, bIsInternal(bIsInternal)
 			, DefaultValue(DefaultValue)
 			, ToolTip(ToolTip)
 			, Metadata(Metadata)
