@@ -21,6 +21,7 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialExpressionComment.h"
 #include "Materials/MaterialExpressionCustom.h"
+#include "Materials/MaterialExpressionMultiply.h"
 #include "Materials/MaterialExpressionStaticBool.h"
 #include "Materials/MaterialExpressionStaticSwitch.h"
 #include "Materials/MaterialExpressionAppendVector.h"
@@ -655,7 +656,17 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 	for (int32 Index = 0; Index < Outputs.Num(); Index++)
 	{
 		const FOutputPin& Pin = AllOutputPins[0][Index];
-		FunctionOutputs[Index]->GetInput(0)->Connect(Pin.Index, Pin.Expression);
+		UMaterialExpressionFunctionOutput* FunctionOutput = FunctionOutputs[Index];
+
+		// Add multiply node to mitigate 5.0 bug where custom node output are incorrectly translated if linked directly to a material output
+		UMaterialExpressionMultiply* Multiply = NewObject<UMaterialExpressionMultiply>(MaterialFunction);
+		Multiply->MaterialExpressionGuid = FGuid::NewGuid();
+		Multiply->MaterialExpressionEditorX = FunctionOutput->MaterialExpressionEditorX - 50;
+		Multiply->MaterialExpressionEditorY = FunctionOutput->MaterialExpressionEditorY;
+		MaterialFunction->FunctionExpressions.Add(Multiply);
+
+		Multiply->GetInput(0)->Connect(Pin.Index, Pin.Expression);
+		FunctionOutput->GetInput(0)->Connect(0, Multiply);
 	}
 
 	{
