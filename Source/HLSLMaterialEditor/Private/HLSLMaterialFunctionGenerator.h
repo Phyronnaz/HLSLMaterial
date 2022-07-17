@@ -59,6 +59,11 @@ private:
 		FVector4 DefaultValueVector{ ForceInit };
 
 		FString ParseTypeAndDefaultValue();
+
+		bool IsCurrentFramePin() const
+		{
+			return Name == "bIsCurrentFrame";
+		}
 	};
 
 	static constexpr const TCHAR* META_Expose = TEXT("Expose");

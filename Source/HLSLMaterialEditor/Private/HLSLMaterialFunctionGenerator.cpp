@@ -30,6 +30,7 @@
 #include "Materials/MaterialExpressionScalarParameter.h"
 #include "Materials/MaterialExpressionVectorParameter.h"
 #include "Materials/MaterialExpressionTextureCoordinate.h"
+#include "Materials/MaterialExpressionPreviousFrameSwitch.h"
 #include "Materials/MaterialExpressionTextureObjectParameter.h"
 
 #include "MaterialEditor/Private/MaterialEditor.h"
@@ -320,6 +321,14 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 	for (int32 Index = 0; Index < Inputs.Num(); Index++)
 	{
 		const FPin& Input = Inputs[Index];
+
+		if (Input.IsCurrentFramePin())
+		{
+			ensure(Input.FunctionInputType == FunctionInput_StaticBool);
+			FunctionInputs.Add(nullptr);
+			continue;
+		}
+
 		if (Input.Metadata.Contains(META_Expose))
 		{
 			const auto SetupExpression = [&](auto* Expression)
@@ -518,12 +527,13 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 	TArray<TArray<FOutputPin>> AllOutputPins;
 	for (int32 Width = 0; Width < 1 << StaticBoolParameters.Num(); Width++)
 	{
+		FString LocalVariableDeclarations = VariableDeclarations;
 		for (int32 Index = 0; Index < StaticBoolParameters.Num(); Index++)
 		{
 			bool bValue = Width & (1 << Index);
 			// Invert the value, as switches take True as first pin
 			bValue = !bValue;
-			VariableDeclarations += "const bool INTERNAL_IN_" + Inputs[StaticBoolParameters[Index]].Name + " = " + (bValue ? "true" : "false") + ";\n";
+			LocalVariableDeclarations += "const bool INTERNAL_IN_" + Inputs[StaticBoolParameters[Index]].Name + " = " + (bValue ? "true" : "false") + ";\n";
 		}
 		for (const FPin& Input : Inputs)
 		{
@@ -552,7 +562,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			case FunctionInput_VolumeTexture:
 			case FunctionInput_TextureExternal:
 			{
-				VariableDeclarations += (Input.bIsConst ? "const SamplerState " : "SamplerState ") + Input.Name + "Sampler" + " = INTERNAL_IN_" + Input.Name + "Sampler;\n";
+				LocalVariableDeclarations += (Input.bIsConst ? "const SamplerState " : "SamplerState ") + Input.Name + "Sampler" + " = INTERNAL_IN_" + Input.Name + "Sampler;\n";
 			}
 			break;
 			case FunctionInput_StaticBool:
@@ -565,14 +575,14 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			default:
 				ensure(false);
 			}
-			VariableDeclarations += (Input.bIsConst ? "const " : "") + Input.Type + " " + Input.Name + " = " + Cast + "(INTERNAL_IN_" + Input.Name + ");\n";
+			LocalVariableDeclarations += (Input.bIsConst ? "const " : "") + Input.Type + " " + Input.Name + " = " + Cast + "(INTERNAL_IN_" + Input.Name + ");\n";
 		}
 
 		UMaterialExpressionCustom* MaterialExpressionCustom = NewObject<UMaterialExpressionCustom>(MaterialFunction);
 		MaterialExpressionCustom->MaterialExpressionGuid = FGuid::NewGuid();
 		MaterialExpressionCustom->bCollapsed = true;
 		MaterialExpressionCustom->OutputType = CMOT_Float1;
-		MaterialExpressionCustom->Code = GenerateFunctionCode(Library, Function, VariableDeclarations);
+		MaterialExpressionCustom->Code = GenerateFunctionCode(Library, Function, LocalVariableDeclarations);
 		MaterialExpressionCustom->MaterialExpressionEditorX = 500;
 		MaterialExpressionCustom->MaterialExpressionEditorY = 200 * Width;
 		MaterialExpressionCustom->IncludeFilePaths = IncludeFilePaths;
@@ -627,6 +637,9 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 
 	for (int32 Layer = 0; Layer < StaticBoolParameters.Num(); Layer++)
 	{
+		const int32 InputIndex = StaticBoolParameters[Layer];
+		const FPin& Input = Inputs[InputIndex];
+
 		const TArray<TArray<FOutputPin>> PreviousAllOutputPins = MoveTemp(AllOutputPins);
 		
 		for (int32 Width = 0; Width < 1 << (StaticBoolParameters.Num() - Layer - 1); Width++)
@@ -634,7 +647,13 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			TArray<FOutputPin>& OutputPins = AllOutputPins.Emplace_GetRef();
 			for (int32 Index = 0; Index < Outputs.Num(); Index++)
 			{
-				UMaterialExpressionStaticSwitch* StaticSwitch = NewObject<UMaterialExpressionStaticSwitch>(MaterialFunction);
+				UClass* Class = UMaterialExpressionStaticSwitch::StaticClass();
+				if (Input.IsCurrentFramePin())
+				{
+					Class = UMaterialExpressionPreviousFrameSwitch::StaticClass();
+				}
+
+				UMaterialExpression* StaticSwitch = NewObject<UMaterialExpression>(MaterialFunction, Class);
 				StaticSwitch->MaterialExpressionGuid = FGuid::NewGuid();
 				StaticSwitch->MaterialExpressionEditorX = (Layer + 2) * 500;
 				StaticSwitch->MaterialExpressionEditorY = 200 * Width;
@@ -643,9 +662,13 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 				const FOutputPin& OutputPinA = PreviousAllOutputPins[2 * Width + 0][Index];
 				const FOutputPin& OutputPinB = PreviousAllOutputPins[2 * Width + 1][Index];
 
-				StaticSwitch->A.Connect(OutputPinA.Index, OutputPinA.Expression);
-				StaticSwitch->B.Connect(OutputPinB.Index, OutputPinB.Expression);
-				StaticSwitch->Value.Connect(0, FunctionInputs[StaticBoolParameters[Layer]]);
+				StaticSwitch->GetInput(0)->Connect(OutputPinA.Index, OutputPinA.Expression);
+				StaticSwitch->GetInput(1)->Connect(OutputPinB.Index, OutputPinB.Expression);
+
+				if (!Input.IsCurrentFramePin())
+				{
+					StaticSwitch->GetInput(2)->Connect(0, FunctionInputs[InputIndex]);
+				}
 
 				OutputPins.Add({ StaticSwitch, 0 });
 			}
