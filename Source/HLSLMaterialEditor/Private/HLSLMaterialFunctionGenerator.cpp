@@ -23,6 +23,7 @@
 #include "Materials/MaterialExpressionCustom.h"
 #include "Materials/MaterialExpressionMultiply.h"
 #include "Materials/MaterialExpressionStaticBool.h"
+#include "Materials/MaterialExpressionVertexColor.h"
 #include "Materials/MaterialExpressionStaticSwitch.h"
 #include "Materials/MaterialExpressionAppendVector.h"
 #include "Materials/MaterialExpressionFunctionInput.h"
@@ -256,6 +257,9 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			MaxTexCoordinateUsed = FMath::Max(MaxTexCoordinateUsed, FCString::Atoi(*RegexMatcher.GetCaptureGroup(1)));
 		}
 	}
+	
+	// Detect used vertex colors
+	const bool bVertexColorUsed = Function.Body.Contains("Parameters.VertexColor", ESearchCase::CaseSensitive);
 
 	///////////////////////////////////////////////////////////////////////////////////
 	//// Past this point, try to never error out as it'll break existing functions ////
@@ -647,6 +651,22 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			FCustomInput& CustomInput = MaterialExpressionCustom->Inputs.Emplace_GetRef();
 			CustomInput.InputName = "DUMMY_COORDINATE_INPUT";
 			CustomInput.Input.Connect(0, TextureCoordinate);
+		}
+
+		if (bVertexColorUsed)
+		{
+			// Create a dummy vertex color parameter to ensure INTERPOLATE_VERTEX_COLOR is correct
+
+			UMaterialExpressionVertexColor* Color = NewObject<UMaterialExpressionVertexColor>(MaterialFunction);
+			Color->MaterialExpressionGuid = FGuid::NewGuid();
+			Color->bCollapsed = true;
+			Color->MaterialExpressionEditorX = MaterialExpressionCustom->MaterialExpressionEditorX - 200;
+			Color->MaterialExpressionEditorY = MaterialExpressionCustom->MaterialExpressionEditorY;
+			MaterialFunction->FunctionExpressions.Add(Color);
+
+			FCustomInput& CustomInput = MaterialExpressionCustom->Inputs.Emplace_GetRef();
+			CustomInput.InputName = "DUMMY_COLOR_INPUT";
+			CustomInput.Input.Connect(0, Color);
 		}
 
 		MaterialExpressionCustom->PostEditChange();
