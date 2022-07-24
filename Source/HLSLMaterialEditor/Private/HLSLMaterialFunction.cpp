@@ -11,6 +11,7 @@ FString FHLSLMaterialFunction::GenerateHashedString(const FString& BaseHash) con
 		PluginHashVersion + " " +
 		FString::FromInt(StartLine) + " " +
 		Comment + " " +
+		Metadata + " " +
 		ReturnType + " " +
 		Name + "(" +
 		FString::Join(Arguments, TEXT(",")) + ")" +

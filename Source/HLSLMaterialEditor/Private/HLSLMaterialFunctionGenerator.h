@@ -68,6 +68,7 @@ private:
 
 	static constexpr const TCHAR* META_Expose = TEXT("Expose");
 	static constexpr const TCHAR* META_Category = TEXT("Category");
+	static constexpr const TCHAR* FUNC_META_Prefix = TEXT("Prefix");
 
 	static FString GenerateFunctionCode(const UHLSLMaterialFunctionLibrary& Library, const FHLSLMaterialFunction& Function, const FString& Declarations);
 	static bool ParseDefaultValue(const FString& DefaultValue, int32 Dimension, FVector4& OutValue);

@@ -16,6 +16,7 @@ FString FHLSLMaterialParser::Parse(
 		Global,
 		Preprocessor,
 		FunctionComment,
+		FunctionMetadata,
 		FunctionReturn,
 		FunctionName,
 		FunctionArgs,
@@ -78,6 +79,10 @@ FString FHLSLMaterialParser::Parse(
 			{
 				Scope = EScope::FunctionComment;
 			}
+			else if (Char == TEXT('['))
+			{
+				Scope = EScope::FunctionMetadata;
+			}
 			else
 			{
 				Scope = EScope::FunctionReturn;
@@ -102,6 +107,18 @@ FString FHLSLMaterialParser::Parse(
 				continue;
 			}
 			OutFunctions.Last().Comment += "\n";
+
+			Scope = EScope::Global;
+		}
+		break;
+		case EScope::FunctionMetadata:
+		{
+			if (!FChar::IsLinebreak(Char))
+			{
+				OutFunctions.Last().Metadata += Char;
+				continue;
+			}
+			OutFunctions.Last().Metadata += "\n";
 
 			Scope = EScope::Global;
 		}

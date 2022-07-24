@@ -8,6 +8,7 @@ struct FHLSLMaterialFunction
 {
 	int32 StartLine = 0;
 	FString Comment;
+	FString Metadata;
 	FString ReturnType;
 	FString Name;
 	TArray<FString> Arguments;

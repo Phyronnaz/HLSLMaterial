@@ -102,6 +102,24 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		return "Return type needs to be void";
 	}
 
+	TMap<FString, FString> FunctionMetadata;
+	if (!Function.Metadata.IsEmpty())
+	{
+		TArray<FString> Metadatas;
+		Function.Metadata.ParseIntoArray(Metadatas, TEXT("\n"));
+		for (FString Metadata : Metadatas)
+		{
+			Metadata.TrimStartAndEndInline();
+			if (!Metadata.RemoveFromStart("[") ||
+				!Metadata.RemoveFromEnd("]"))
+			{
+				return "Invalid function metadata: " + Metadata;
+			}
+
+			FunctionMetadata.Append(GenerateMetadata(Metadata));
+		}
+	}
+
 	for (const FString& Argument : Function.Arguments)
 	{
 		FRegexPattern RegexPattern(""
@@ -258,7 +276,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		}
 		if (UMaterialExpressionParameter* Parameter = Cast<UMaterialExpressionParameter>(Expression))
 		{
-			FunctionOutputGuids.Add(Parameter->ParameterName, Parameter->ExpressionGUID);
+			ParameterGuids.Add(Parameter->ParameterName, Parameter->ExpressionGUID);
 		}
 	}
 	MaterialFunction->FunctionExpressions.Empty();
@@ -333,14 +351,20 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		{
 			const auto SetupExpression = [&](auto* Expression)
 			{
+				FString ParameterName = Input.Name;
+				if (const FString* Prefix = FunctionMetadata.Find(FUNC_META_Prefix))
+				{
+					ParameterName = *Prefix + ParameterName;
+				}
+
 				Expression->MaterialExpressionGuid = FGuid::NewGuid();
-				Expression->ExpressionGUID = ParameterGuids.FindRef(*Input.Name);
+				Expression->ExpressionGUID = ParameterGuids.FindRef(*ParameterName);
 				if (!Expression->ExpressionGUID.IsValid())
 				{
 					Expression->ExpressionGUID = FGuid::NewGuid();
 				}
 				Expression->SortPriority = 32;
-				Expression->ParameterName = *Input.Name;
+				Expression->ParameterName = *ParameterName;
 				Expression->Group = *Input.Metadata.FindRef(META_Category);
 				Expression->bCollapsed = true;
 				Expression->MaterialExpressionEditorX = 0;
