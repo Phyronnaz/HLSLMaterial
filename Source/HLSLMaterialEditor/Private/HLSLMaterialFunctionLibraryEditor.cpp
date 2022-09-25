@@ -128,13 +128,19 @@ void FHLSLMaterialFunctionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary& 
 	}
 
 	TArray<FHLSLMaterialFunction> Functions;
+	TArray<FString> Structs;
 	{
-		const FString Error = FHLSLMaterialParser::Parse(Library, Text, Functions);
+		const FString Error = FHLSLMaterialParser::Parse(Library, Text, Functions, Structs);
 		if (!Error.IsEmpty())
 		{
 			FHLSLMaterialMessages::ShowError(TEXT("Parsing failed: %s"), *Error);
 			return;
 		}
+	}
+
+	for (const FString& Struct : Structs)
+	{
+		BaseHash += Struct;
 	}
 
 	Library.MaterialFunctions.RemoveAll([&](TSoftObjectPtr<UMaterialFunction> InFunction)
@@ -150,8 +156,9 @@ void FHLSLMaterialFunctionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary& 
 		const FString Error = FHLSLMaterialFunctionGenerator::GenerateFunction(
 			Library, 
 			IncludeFilePaths, 
-			AdditionalDefines, 
-			Function, 
+			AdditionalDefines,
+			Structs,
+			Function,
 			UpdateContext);
 
 		if (!Error.IsEmpty())

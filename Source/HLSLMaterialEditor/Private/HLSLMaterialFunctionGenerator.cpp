@@ -40,6 +40,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 	UHLSLMaterialFunctionLibrary& Library,
 	const TArray<FString>& IncludeFilePaths,
 	const TArray<FCustomDefine>& AdditionalDefines,
+	const TArray<FString>& Structs,
 	FHLSLMaterialFunction Function,
 	FMaterialUpdateContext& UpdateContext)
 {
@@ -610,7 +611,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		MaterialExpressionCustom->MaterialExpressionGuid = FGuid::NewGuid();
 		MaterialExpressionCustom->bCollapsed = true;
 		MaterialExpressionCustom->OutputType = CMOT_Float1;
-		MaterialExpressionCustom->Code = GenerateFunctionCode(Library, Function, LocalVariableDeclarations);
+		MaterialExpressionCustom->Code = GenerateFunctionCode(Library, Function, Structs, LocalVariableDeclarations);
 		MaterialExpressionCustom->MaterialExpressionEditorX = 500;
 		MaterialExpressionCustom->MaterialExpressionEditorY = 200 * Width;
 		MaterialExpressionCustom->IncludeFilePaths = IncludeFilePaths;
@@ -933,9 +934,15 @@ FString FHLSLMaterialFunctionGenerator::FPin::ParseTypeAndDefaultValue()
 	return {};
 }
 
-FString FHLSLMaterialFunctionGenerator::GenerateFunctionCode(const UHLSLMaterialFunctionLibrary& Library, const FHLSLMaterialFunction& Function, const FString& Declarations)
+FString FHLSLMaterialFunctionGenerator::GenerateFunctionCode(const UHLSLMaterialFunctionLibrary& Library, const FHLSLMaterialFunction& Function, const TArray<FString>& Structs, const FString& Declarations)
 {
-	FString Code = Function.Body.Replace(TEXT("return"), TEXT("return 0.f"));
+	FString Code;
+	for (const FString& Struct : Structs)
+	{
+		Code += Struct;
+	}
+	
+	Code += Function.Body.Replace(TEXT("return"), TEXT("return 0.f"));
 
 	if (Library.bAccurateErrors)
 	{

@@ -9,7 +9,8 @@
 FString FHLSLMaterialParser::Parse(
 	const UHLSLMaterialFunctionLibrary& Library, 
 	FString Text, 
-	TArray<FHLSLMaterialFunction>& OutFunctions)
+	TArray<FHLSLMaterialFunction>& OutFunctions,
+	TArray<FString>& OutStructs)
 {
 	enum class EScope
 	{
@@ -21,7 +22,8 @@ FString FHLSLMaterialParser::Parse(
 		FunctionName,
 		FunctionArgs,
 		FunctionBodyStart,
-		FunctionBody
+		FunctionBody,
+		Struct
 	};
 
 	EScope Scope = EScope::Global;
@@ -36,6 +38,12 @@ FString FHLSLMaterialParser::Parse(
 
 	while (Index < Text.Len())
 	{
+		FString Token;
+		for (int32 TokenIndex = Index; TokenIndex < Text.Len() && !FChar::IsWhitespace(Text[TokenIndex]); TokenIndex++)
+		{
+			Token += Text[TokenIndex];
+		}
+		
 		const TCHAR Char = Text[Index++];
 		
 		if (FChar::IsLinebreak(Char))
@@ -82,6 +90,11 @@ FString FHLSLMaterialParser::Parse(
 			else if (Char == TEXT('['))
 			{
 				Scope = EScope::FunctionMetadata;
+			}
+			else if (Token == TEXT("struct"))
+			{
+				Scope = EScope::Struct;
+				OutStructs.Emplace();
 			}
 			else
 			{
@@ -246,6 +259,25 @@ FString FHLSLMaterialParser::Parse(
 
 			ensure(ScopeDepth == 0);
 			Scope = EScope::Global;
+		}
+		break;
+		case EScope::Struct:
+		{
+			OutStructs.Last() += Char;
+
+			if (Char == TEXT('{'))
+			{
+				ScopeDepth++;
+			}
+			if (Char == TEXT('}'))
+			{
+				ScopeDepth--;
+			}
+
+			if (ScopeDepth == 0 && Char == TEXT(';'))
+			{
+				Scope = EScope::Global;
+			}
 		}
 		break;
 		default: ensure(false);
