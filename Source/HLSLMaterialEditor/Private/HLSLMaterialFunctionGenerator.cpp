@@ -26,6 +26,7 @@
 #include "Materials/MaterialExpressionVertexColor.h"
 #include "Materials/MaterialExpressionStaticSwitch.h"
 #include "Materials/MaterialExpressionAppendVector.h"
+#include "Materials/MaterialExpressionWorldPosition.h"
 #include "Materials/MaterialExpressionFunctionInput.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
 #include "Materials/MaterialExpressionScalarParameter.h"
@@ -261,6 +262,8 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 	
 	// Detect used vertex colors
 	const bool bVertexColorUsed = Function.Body.Contains("Parameters.VertexColor", ESearchCase::CaseSensitive);
+	// Detect whether NEEDS_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS is required
+	const bool bNeedsWorldPositionExcludingShaderOffsets = Function.Body.Contains("GetWorldPosition_NoMaterialOffsets", ESearchCase::CaseSensitive);
 
 	///////////////////////////////////////////////////////////////////////////////////
 	//// Past this point, try to never error out as it'll break existing functions ////
@@ -668,6 +671,23 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			FCustomInput& CustomInput = MaterialExpressionCustom->Inputs.Emplace_GetRef();
 			CustomInput.InputName = "DUMMY_COLOR_INPUT";
 			CustomInput.Input.Connect(0, Color);
+		}
+
+		if (bNeedsWorldPositionExcludingShaderOffsets)
+		{
+			// Create a dummy world position node to ensure NEEDS_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS is correct
+
+			UMaterialExpressionWorldPosition* WorldPosition = NewObject<UMaterialExpressionWorldPosition>(MaterialFunction);
+			WorldPosition->MaterialExpressionGuid = FGuid::NewGuid();
+			WorldPosition->bCollapsed = true;
+			WorldPosition->WorldPositionShaderOffset = WPT_ExcludeAllShaderOffsets;
+			WorldPosition->MaterialExpressionEditorX = MaterialExpressionCustom->MaterialExpressionEditorX - 200;
+			WorldPosition->MaterialExpressionEditorY = MaterialExpressionCustom->MaterialExpressionEditorY;
+			MaterialFunction->FunctionExpressions.Add(WorldPosition);
+			
+			FCustomInput& CustomInput = MaterialExpressionCustom->Inputs.Emplace_GetRef();
+			CustomInput.InputName = "DUMMY_WORLD_POSITION_INPUT";
+			CustomInput.Input.Connect(0, WorldPosition);
 		}
 
 		MaterialExpressionCustom->PostEditChange();
