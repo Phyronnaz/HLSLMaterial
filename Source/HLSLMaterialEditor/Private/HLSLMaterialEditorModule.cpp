@@ -20,7 +20,7 @@ public:
 	virtual FText GetName() const override { return INVTEXT("HLSL Material Function Library"); }
 	virtual uint32 GetCategories() override
 	{
-#if ENGINE_VERSION >= 500 && !HLSL_MATERIAL_UE5_EA
+#if ENGINE_VERSION >= 500
 		return EAssetTypeCategories::Materials;
 #else
 		return EAssetTypeCategories::MaterialsAndTextures;

@@ -15,22 +15,22 @@ struct HLSLMATERIALRUNTIME_API FHLSLMaterialUtilities
 
 HLSLMATERIALRUNTIME_API DECLARE_LOG_CATEGORY_EXTERN(LogHLSLMaterial, Log, All);
 
-#ifndef HLSL_MATERIAL_UE5_EA
-#define HLSL_MATERIAL_UE5_EA 0
-#endif
-
-#if HLSL_MATERIAL_UE5_EA
-#define ENGINE_VERSION 499
-#else
 #define ENGINE_VERSION (ENGINE_MAJOR_VERSION * 100 + ENGINE_MINOR_VERSION)
-#endif
 
-#if ENGINE_VERSION >= 500 && !HLSL_MATERIAL_UE5_EA
+#if ENGINE_VERSION >= 500
 #define UE_500_SWITCH(Before, AfterOrEqual) AfterOrEqual
 #define UE_500_ONLY(...) __VA_ARGS__
 #else
 #define UE_500_SWITCH(Before, AfterOrEqual) Before
 #define UE_500_ONLY(...)
+#endif
+
+#if ENGINE_VERSION >= 501
+#define UE_501_SWITCH(Before, AfterOrEqual) AfterOrEqual
+#define UE_501_ONLY(...) __VA_ARGS__
+#else
+#define UE_501_SWITCH(Before, AfterOrEqual) Before
+#define UE_501_ONLY(...)
 #endif
 
 #define HLSL_STARTUP_FUNCTION(Phase, ...) \
@@ -58,3 +58,8 @@ struct THLSLRemoveConst<const T&>
 };
 
 #define HLSL_CONST_CAST(X) const_cast<THLSLRemoveConst<decltype(X)>::Type>(X)
+
+#if ENGINE_VERSION >= 501
+#define FunctionExpressions GetExpressionCollection().Expressions
+#define FunctionEditorComments GetExpressionCollection().EditorComments
+#endif

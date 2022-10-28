@@ -40,7 +40,11 @@ void FHLSLMaterialFunctionLibraryEditor::Register()
 		// Force load all libraries that have bGenerateOnFileChange, to start their watchers
 		TArray<FAssetData> AssetDatas;
 		FARFilter Filer;
+#if ENGINE_VERSION < 501
 		Filer.ClassNames.Add(UHLSLMaterialFunctionLibrary::StaticClass()->GetFName());
+#else
+		Filer.ClassPaths.Add(UHLSLMaterialFunctionLibrary::StaticClass()->GetClassPathName());
+#endif
 		Filer.TagsAndValues.Add(GET_MEMBER_NAME_CHECKED(UHLSLMaterialFunctionLibrary, bUpdateOnFileChange), FString("true"));
 		AssetRegistry.GetAssets(Filer, AssetDatas);
 

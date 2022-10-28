@@ -522,7 +522,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			}
 			else
 			{
-				Expression->PreviewValue = Input.DefaultValueVector;
+				Expression->PreviewValue = decltype(Expression->PreviewValue)(Input.DefaultValueVector);
 			}
 		}
 	}

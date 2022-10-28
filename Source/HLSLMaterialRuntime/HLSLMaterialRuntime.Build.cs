@@ -41,12 +41,5 @@ public class HLSLMaterialRuntime : ModuleRules
                 }
             );
         }
-        
-        BuildVersion Version;
-        if (BuildVersion.TryRead(BuildVersion.GetDefaultFileName(), out Version) &&
-            Version.BranchName == "++UE5+Release-5.0-EarlyAccess")
-        {
-            PublicDefinitions.Add("HLSL_MATERIAL_UE5_EA=1");
-        }
     }
 }
