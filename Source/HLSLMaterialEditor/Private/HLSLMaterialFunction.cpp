@@ -5,17 +5,21 @@
 
 FString FHLSLMaterialFunction::GenerateHashedString(const FString& BaseHash) const
 {
-	const FString PluginHashVersion = "1";
-	const FString StringToHash =
+	FString StringToHash =
 		BaseHash +
-		PluginHashVersion + " " +
-		FString::FromInt(StartLine) + " " +
+		// Changes too often
+		//FString::FromInt(StartLine) + " " +
 		Comment + " " +
 		Metadata + " " +
 		ReturnType + " " +
 		Name + "(" +
 		FString::Join(Arguments, TEXT(",")) + ")" +
 		Body;
+
+	StringToHash.ReplaceInline(TEXT("\t"), TEXT(" "));
+	StringToHash.ReplaceInline(TEXT("\n"), TEXT(" "));
+
+	while (StringToHash.ReplaceInline(TEXT("  "), TEXT(" "))) {}
 
 	return "HLSL Hash: " + FHLSLMaterialUtilities::HashString(StringToHash);
 }
