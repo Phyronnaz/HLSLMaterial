@@ -1,4 +1,4 @@
-// Copyright 2021 Phyronnaz
+// Copyright Phyronnaz
 
 using System.IO;
 using UnrealBuildTool;

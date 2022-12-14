@@ -1,4 +1,4 @@
-﻿// Copyright 2021 Phyronnaz
+﻿// Copyright Phyronnaz
 
 #include "HLSLMaterialErrorHook.h"
 #include "HLSLMaterialSettings.h"

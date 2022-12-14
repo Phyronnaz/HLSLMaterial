@@ -1,4 +1,4 @@
-﻿// Copyright 2021 Phyronnaz
+﻿// Copyright Phyronnaz
 
 #include "HLSLMaterialFileWatcher.h"
 #include "HLSLMaterialUtilities.h"

@@ -1,4 +1,4 @@
-// Copyright 2021 Phyronnaz
+// Copyright Phyronnaz
 
 using System;
 using System.IO;
