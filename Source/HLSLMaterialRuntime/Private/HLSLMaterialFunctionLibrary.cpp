@@ -1,6 +1,8 @@
 // Copyright Phyronnaz
 
 #include "HLSLMaterialFunctionLibrary.h"
+#include "ShaderCore.h"
+#include "Misc/PackageName.h"
 
 #if WITH_EDITOR
 IHLSLMaterialEditorInterface* IHLSLMaterialEditorInterface::StaticInterface = nullptr;

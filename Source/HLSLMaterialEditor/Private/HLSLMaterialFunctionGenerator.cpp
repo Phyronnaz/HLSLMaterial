@@ -16,8 +16,10 @@
 #include "Widgets/Notifications/SNotificationList.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Engine/Texture2DArray.h"
+#include "UObject/UObjectIterator.h"
 
 #include "MaterialGraph/MaterialGraph.h"
+#include "Materials/MaterialFunction.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialExpressionComment.h"
 #include "Materials/MaterialExpressionCustom.h"

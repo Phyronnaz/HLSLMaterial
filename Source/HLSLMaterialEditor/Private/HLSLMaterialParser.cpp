@@ -5,6 +5,7 @@
 #include "HLSLMaterialFunctionLibrary.h"
 #include "HLSLMaterialMessages.h"
 #include "Internationalization/Regex.h"
+#include "ShaderCompilerCore.h"
 
 FString FHLSLMaterialParser::Parse(
 	const UHLSLMaterialFunctionLibrary& Library, 
