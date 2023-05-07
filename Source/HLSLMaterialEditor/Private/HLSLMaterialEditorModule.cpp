@@ -27,25 +27,24 @@ public:
 #endif
 	}
 	virtual FColor GetTypeColor() const override { return FColor(0, 175, 255); }
-	virtual UClass* GetSupportedClass() const override { return UHLSLMaterialFunctionLibrary::StaticClass(); }
+	virtual UClass *GetSupportedClass() const override { return UHLSLMaterialFunctionLibrary::StaticClass(); }
 
-	virtual bool HasActions(const TArray<UObject*>&InObjects) const override { return true; }
-	virtual void GetActions(const TArray<UObject*>&InObjects, FMenuBuilder& MenuBuilder) override
+	virtual bool HasActions(const TArray<UObject *> &InObjects) const override { return true; }
+	virtual void GetActions(const TArray<UObject *> &InObjects, FMenuBuilder &MenuBuilder) override
 	{
 		MenuBuilder.AddMenuEntry(
 			INVTEXT("Update from HLSL"),
 			INVTEXT("Update all the generated material functions from the HLSL code"),
 			{},
 			FUIAction(FExecuteAction::CreateLambda([this, Assets = GetTypedWeakObjectPtrs<UHLSLMaterialFunctionLibrary>(InObjects)]()
-		{
+												   {
 			for (const TWeakObjectPtr<UHLSLMaterialFunctionLibrary>& Asset : Assets)
 			{
 				if (ensure(Asset.IsValid()))
 				{
 					IHLSLMaterialEditorInterface::Get()->Update(*Asset);
 				}
-			}
-		})));
+			} })));
 	}
 	//~ End IAssetTypeActions Interface
 };
@@ -55,10 +54,13 @@ class FHLSLMaterialEditorModule : public IModuleInterface
 public:
 	virtual void StartupModule() override
 	{
-		IAssetTools& AssetTools = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools").Get();
+		FString ShaderDirectory = FPaths::Combine(FPaths::ProjectDir(), TEXT("Shaders"));
+		AddShaderSourceDirectoryMapping("/Project", ShaderDirectory);
+
+		IAssetTools &AssetTools = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools").Get();
 		AssetTools.RegisterAssetTypeActions(MakeShared<FAssetTypeActions_HLSLMaterialFunctionLibrary>());
-		
-		ISettingsModule& SettingsModule = FModuleManager::LoadModuleChecked<ISettingsModule>("Settings");
+
+		ISettingsModule &SettingsModule = FModuleManager::LoadModuleChecked<ISettingsModule>("Settings");
 		SettingsModule.RegisterSettings(
 			"Editor",
 			"Plugins",
