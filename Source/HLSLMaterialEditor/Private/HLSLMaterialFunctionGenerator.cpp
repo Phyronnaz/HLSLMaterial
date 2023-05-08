@@ -40,17 +40,15 @@
 #include "MaterialEditor/Private/MaterialEditor.h"
 
 FString FHLSLMaterialFunctionGenerator::GenerateFunction(
-	UHLSLMaterialFunctionLibrary& Library,
-	const TArray<FString>& IncludeFilePaths,
-	const TArray<FCustomDefine>& AdditionalDefines,
-	const TArray<FString>& Structs,
+	UHLSLMaterialFunctionLibrary &Library,
+	const TArray<FString> &IncludeFilePaths,
+	const TArray<FCustomDefine> &AdditionalDefines,
+	const TArray<FString> &Structs,
 	FHLSLMaterialFunction Function,
-	FMaterialUpdateContext& UpdateContext)
+	FMaterialUpdateContext &UpdateContext)
 {
-	TSoftObjectPtr<UMaterialFunction>* MaterialFunctionPtr = Library.MaterialFunctions.FindByPredicate([&](TSoftObjectPtr<UMaterialFunction> InFunction)
-	{
-		return InFunction && InFunction->GetFName() == *Function.Name;
-	});
+	TSoftObjectPtr<UMaterialFunction> *MaterialFunctionPtr = Library.MaterialFunctions.FindByPredicate([&](TSoftObjectPtr<UMaterialFunction> InFunction)
+																									   { return InFunction && InFunction->GetFName() == *Function.Name; });
 	if (!MaterialFunctionPtr)
 	{
 		Library.MarkPackageDirty();
@@ -67,7 +65,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		BasePath = FPaths::GetPath(BasePath);
 	}
 
-	UMaterialFunction* MaterialFunction = MaterialFunctionPtr->Get();
+	UMaterialFunction *MaterialFunction = MaterialFunctionPtr->Get();
 	if (!MaterialFunction)
 	{
 		FString Error;
@@ -89,7 +87,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 	}
 	*MaterialFunctionPtr = MaterialFunction;
 
-	for (UMaterialExpressionComment* Comment : MaterialFunction->FunctionEditorComments)
+	for (UMaterialExpressionComment *Comment : MaterialFunction->FunctionEditorComments)
 	{
 		if (Comment && Comment->Text.Contains(Function.HashedString))
 		{
@@ -125,20 +123,20 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		}
 	}
 
-	for (const FString& Argument : Function.Arguments)
+	for (const FString &Argument : Function.Arguments)
 	{
 		FRegexPattern RegexPattern(""
-			R"_(^\s*)_"                      // Start
-			R"_((?:\[(.*)\])?)_"             // [Metadata]
-			R"_(\s*)_"                       // Spaces
-			R"_((?:(const\s+)?|(out\s+)?))_" // Either const or out
-			R"_((\w*))_"                     // Type
-			R"_(\s*)_"                       // Spaces
-			R"_((?:<\w+>)?)_"                // Potential (ignored) template, eg Texture2D<float>
-			R"_(\s+)_"                       // Spaces
-			R"_((\w*))_"                     // Name
-			R"_((?:\s*=\s*(.+))?)_"          // Optional default value
-			R"_(\s*$)_");                    // End
+								   R"_(^\s*)_"						// Start
+								   R"_((?:\[(.*)\])?)_"				// [Metadata]
+								   R"_(\s*)_"						// Spaces
+								   R"_((?:(const\s+)?|(out\s+)?))_" // Either const or out
+								   R"_((\w*))_"						// Type
+								   R"_(\s*)_"						// Spaces
+								   R"_((?:<\w+>)?)_"				// Potential (ignored) template, eg Texture2D<float>
+								   R"_(\s+)_"						// Spaces
+								   R"_((\w*))_"						// Name
+								   R"_((?:\s*=\s*(.+))?)_"			// Optional default value
+								   R"_(\s*$)_");					// End
 		FRegexMatcher RegexMatcher(RegexPattern, Argument);
 		if (!RegexMatcher.FindNext())
 		{
@@ -190,7 +188,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 
 			for (int32 Index = 0; Index < 4; Index++)
 			{
-				FPin& Pin = Inputs.Emplace_GetRef(FPin(
+				FPin &Pin = Inputs.Emplace_GetRef(FPin(
 					Name + FString::FromInt(Index),
 					"float4",
 					true,
@@ -205,30 +203,22 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			}
 
 			VariableDeclarations += FString(bIsConst ? "const " : "") + "float4x4 " + Name + " = float4x4(" +
-				"INTERNAL_IN_" + Name + "0, " +
-				"INTERNAL_IN_" + Name + "1, " +
-				"INTERNAL_IN_" + Name + "2, " +
-				"INTERNAL_IN_" + Name + "3);\n";
+									"INTERNAL_IN_" + Name + "0, " +
+									"INTERNAL_IN_" + Name + "1, " +
+									"INTERNAL_IN_" + Name + "2, " +
+									"INTERNAL_IN_" + Name + "3);\n";
 
 			continue;
 		}
 
-		FPin& Pin = (bIsOutput ? Outputs : Inputs).Emplace_GetRef(FPin(
-			Name,
-			Type,
-			bIsConst,
-			bIsOutput,
-			false,
-			DefaultValue,
-			GenerateTooltip(Name, Function.Comment),
-			GenerateMetadata(Metadata)));
+		FPin &Pin = (bIsOutput ? Outputs : Inputs).Emplace_GetRef(FPin(Name, Type, bIsConst, bIsOutput, false, DefaultValue, GenerateTooltip(Name, Function.Comment), GenerateMetadata(Metadata)));
 
 		const FString Error = Pin.ParseTypeAndDefaultValue();
 		if (!Error.IsEmpty())
 		{
 			return Error;
 		}
-		
+
 		if (Pin.Metadata.Contains(META_Expose))
 		{
 			switch (Pin.FunctionInputType)
@@ -261,7 +251,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			MaxTexCoordinateUsed = FMath::Max(MaxTexCoordinateUsed, FCString::Atoi(*RegexMatcher.GetCaptureGroup(1)));
 		}
 	}
-	
+
 	// Detect used vertex colors
 	const bool bVertexColorUsed = Function.Body.Contains("Parameters.VertexColor", ESearchCase::CaseSensitive);
 	// Detect whether NEEDS_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS is required
@@ -274,17 +264,17 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 	TMap<FName, FGuid> FunctionInputGuids;
 	TMap<FName, FGuid> FunctionOutputGuids;
 	TMap<FName, FGuid> ParameterGuids;
-	for (UMaterialExpression* Expression : MaterialFunction->FunctionExpressions)
+	for (UMaterialExpression *Expression : MaterialFunction->FunctionExpressions)
 	{
-		if (UMaterialExpressionFunctionInput* FunctionInput = Cast<UMaterialExpressionFunctionInput>(Expression))
+		if (UMaterialExpressionFunctionInput *FunctionInput = Cast<UMaterialExpressionFunctionInput>(Expression))
 		{
 			FunctionInputGuids.Add(FunctionInput->InputName, FunctionInput->Id);
 		}
-		if (UMaterialExpressionFunctionOutput* FunctionOutput = Cast<UMaterialExpressionFunctionOutput>(Expression))
+		if (UMaterialExpressionFunctionOutput *FunctionOutput = Cast<UMaterialExpressionFunctionOutput>(Expression))
 		{
 			FunctionOutputGuids.Add(FunctionOutput->OutputName, FunctionOutput->Id);
 		}
-		if (UMaterialExpressionParameter* Parameter = Cast<UMaterialExpressionParameter>(Expression))
+		if (UMaterialExpressionParameter *Parameter = Cast<UMaterialExpressionParameter>(Expression))
 		{
 			ParameterGuids.Add(Parameter->ParameterName, Parameter->ExpressionGUID);
 		}
@@ -295,9 +285,9 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 	{
 		FString Description;
 		Description = Function.Comment
-			.Replace(TEXT("// "), TEXT(""))
-			.Replace(TEXT("\t"), TEXT(" "))
-			.Replace(TEXT("@param "), TEXT(""));
+						  .Replace(TEXT("// "), TEXT(""))
+						  .Replace(TEXT("\t"), TEXT(" "))
+						  .Replace(TEXT("@param "), TEXT(""));
 
 		Description.TrimStartAndEndInline();
 		while (Description.Contains(TEXT("  ")))
@@ -345,10 +335,10 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		}
 	}
 
-	TArray<UMaterialExpression*> FunctionInputs;
+	TArray<UMaterialExpression *> FunctionInputs;
 	for (int32 Index = 0; Index < Inputs.Num(); Index++)
 	{
-		const FPin& Input = Inputs[Index];
+		const FPin &Input = Inputs[Index];
 
 		if (Input.IsCurrentFramePin())
 		{
@@ -359,10 +349,10 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 
 		if (Input.Metadata.Contains(META_Expose))
 		{
-			const auto SetupExpression = [&](auto* Expression)
+			const auto SetupExpression = [&](auto *Expression)
 			{
 				FString ParameterName = Input.Name;
-				if (const FString* Prefix = FunctionMetadata.Find(FUNC_META_Prefix))
+				if (const FString *Prefix = FunctionMetadata.Find(FUNC_META_Prefix))
 				{
 					ParameterName = *Prefix + ParameterName;
 				}
@@ -387,11 +377,11 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			{
 			case FunctionInput_Scalar:
 			{
-				UMaterialExpressionScalarParameter* Expression = NewObject<UMaterialExpressionScalarParameter>(MaterialFunction);
+				UMaterialExpressionScalarParameter *Expression = NewObject<UMaterialExpressionScalarParameter>(MaterialFunction);
 				SetupExpression(Expression);
-				
+
 				FunctionInputs.Add(Expression);
-				
+
 				if (!Input.DefaultValue.IsEmpty())
 				{
 					Expression->DefaultValue = Input.DefaultValueVector.X;
@@ -400,10 +390,10 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			break;
 			case FunctionInput_Vector4:
 			{
-				UMaterialExpressionVectorParameter* Expression = NewObject<UMaterialExpressionVectorParameter>(MaterialFunction);
+				UMaterialExpressionVectorParameter *Expression = NewObject<UMaterialExpressionVectorParameter>(MaterialFunction);
 				SetupExpression(Expression);
-				
-				UMaterialExpressionAppendVector* AppendVector = NewObject<UMaterialExpressionAppendVector>(MaterialFunction);
+
+				UMaterialExpressionAppendVector *AppendVector = NewObject<UMaterialExpressionAppendVector>(MaterialFunction);
 				MaterialFunction->FunctionExpressions.Add(AppendVector);
 				AppendVector->MaterialExpressionEditorX = 150;
 				AppendVector->MaterialExpressionEditorY = 200 * Index;
@@ -412,7 +402,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 				AppendVector->B.Connect(4, Expression);
 
 				FunctionInputs.Add(AppendVector);
-				
+
 				if (!Input.DefaultValue.IsEmpty())
 				{
 					Expression->DefaultValue = FLinearColor(Input.DefaultValueVector);
@@ -425,7 +415,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			case FunctionInput_VolumeTexture:
 			case FunctionInput_TextureExternal:
 			{
-				UMaterialExpressionTextureObjectParameter* Expression = NewObject<UMaterialExpressionTextureObjectParameter>(MaterialFunction);
+				UMaterialExpressionTextureObjectParameter *Expression = NewObject<UMaterialExpressionTextureObjectParameter>(MaterialFunction);
 				SetupExpression(Expression);
 
 				FunctionInputs.Add(Expression);
@@ -446,7 +436,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 				{
 					// Hacky
 
-					UTexture2DArray* TextureArray = LoadObject<UTexture2DArray>(nullptr, *(BasePath / TEXT("DefaultTextureArray")));
+					UTexture2DArray *TextureArray = LoadObject<UTexture2DArray>(nullptr, *(BasePath / TEXT("DefaultTextureArray")));
 					if (!TextureArray)
 					{
 						FString Error;
@@ -474,16 +464,18 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 					// No idea what to do here
 				}
 				break;
-				default: check(false);
+				default:
+					check(false);
 				}
 			}
 			break;
-			default: check(false);
+			default:
+				check(false);
 			}
 			continue;
 		}
 
-		UMaterialExpressionFunctionInput* Expression = NewObject<UMaterialExpressionFunctionInput>(MaterialFunction);
+		UMaterialExpressionFunctionInput *Expression = NewObject<UMaterialExpressionFunctionInput>(MaterialFunction);
 		Expression->MaterialExpressionGuid = FGuid::NewGuid();
 		Expression->Id = FunctionInputGuids.FindRef(*Input.Name);
 		if (!Expression->Id.IsValid())
@@ -514,7 +506,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 
 			if (Input.FunctionInputType == FunctionInput_StaticBool)
 			{
-				UMaterialExpressionStaticBool* StaticBool = NewObject<UMaterialExpressionStaticBool>(MaterialFunction);
+				UMaterialExpressionStaticBool *StaticBool = NewObject<UMaterialExpressionStaticBool>(MaterialFunction);
 				StaticBool->MaterialExpressionGuid = FGuid::NewGuid();
 				StaticBool->MaterialExpressionEditorX = Expression->MaterialExpressionEditorX - 200;
 				StaticBool->MaterialExpressionEditorY = Expression->MaterialExpressionEditorY;
@@ -529,12 +521,12 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		}
 	}
 
-	TArray<UMaterialExpressionFunctionOutput*> FunctionOutputs;
+	TArray<UMaterialExpressionFunctionOutput *> FunctionOutputs;
 	for (int32 Index = 0; Index < Outputs.Num(); Index++)
 	{
-		const FPin& Output = Outputs[Index];
+		const FPin &Output = Outputs[Index];
 
-		UMaterialExpressionFunctionOutput* Expression = NewObject<UMaterialExpressionFunctionOutput>(MaterialFunction);
+		UMaterialExpressionFunctionOutput *Expression = NewObject<UMaterialExpressionFunctionOutput>(MaterialFunction);
 		Expression->MaterialExpressionGuid = FGuid::NewGuid();
 		Expression->Id = FunctionOutputGuids.FindRef(*Output.Name);
 		if (!Expression->Id.IsValid())
@@ -554,7 +546,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 
 	struct FOutputPin
 	{
-		UMaterialExpression* Expression = nullptr;
+		UMaterialExpression *Expression = nullptr;
 		int32 Index = 0;
 	};
 
@@ -569,7 +561,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			bValue = !bValue;
 			LocalVariableDeclarations += "const bool INTERNAL_IN_" + Inputs[StaticBoolParameters[Index]].Name + " = " + (bValue ? "true" : "false") + ";\n";
 		}
-		for (const FPin& Input : Inputs)
+		for (const FPin &Input : Inputs)
 		{
 			if (Input.bIsInternal)
 			{
@@ -612,7 +604,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			LocalVariableDeclarations += (Input.bIsConst ? "const " : "") + Input.Type + " " + Input.Name + " = " + Cast + "(INTERNAL_IN_" + Input.Name + ");\n";
 		}
 
-		UMaterialExpressionCustom* MaterialExpressionCustom = NewObject<UMaterialExpressionCustom>(MaterialFunction);
+		UMaterialExpressionCustom *MaterialExpressionCustom = NewObject<UMaterialExpressionCustom>(MaterialFunction);
 		MaterialExpressionCustom->MaterialExpressionGuid = FGuid::NewGuid();
 		MaterialExpressionCustom->bCollapsed = true;
 		MaterialExpressionCustom->OutputType = CMOT_Float1;
@@ -626,27 +618,27 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		MaterialExpressionCustom->Inputs.Reset();
 		for (int32 Index = 0; Index < Inputs.Num(); Index++)
 		{
-			FPin& Input = Inputs[Index];
+			FPin &Input = Inputs[Index];
 			if (Input.FunctionInputType == FunctionInput_StaticBool)
 			{
 				continue;
 			}
 
-			FCustomInput& CustomInput = MaterialExpressionCustom->Inputs.Emplace_GetRef();
+			FCustomInput &CustomInput = MaterialExpressionCustom->Inputs.Emplace_GetRef();
 			CustomInput.InputName = *("INTERNAL_IN_" + Input.Name);
 			CustomInput.Input.Connect(0, FunctionInputs[Index]);
 		}
 		for (int32 Index = 0; Index < Outputs.Num(); Index++)
 		{
-			const FPin& Output = Outputs[Index];
-			MaterialExpressionCustom->AdditionalOutputs.Add({ *Output.Name, Output.CustomOutputType.GetValue() });
+			const FPin &Output = Outputs[Index];
+			MaterialExpressionCustom->AdditionalOutputs.Add({*Output.Name, Output.CustomOutputType.GetValue()});
 		}
 
 		if (MaxTexCoordinateUsed != -1)
 		{
 			// Create a dummy texture coordinate index to ensure NUM_TEX_COORD_INTERPOLATORS is correct
 
-			UMaterialExpressionTextureCoordinate* TextureCoordinate = NewObject<UMaterialExpressionTextureCoordinate>(MaterialFunction);
+			UMaterialExpressionTextureCoordinate *TextureCoordinate = NewObject<UMaterialExpressionTextureCoordinate>(MaterialFunction);
 			TextureCoordinate->MaterialExpressionGuid = FGuid::NewGuid();
 			TextureCoordinate->bCollapsed = true;
 			TextureCoordinate->CoordinateIndex = MaxTexCoordinateUsed;
@@ -654,7 +646,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			TextureCoordinate->MaterialExpressionEditorY = MaterialExpressionCustom->MaterialExpressionEditorY;
 			MaterialFunction->FunctionExpressions.Add(TextureCoordinate);
 
-			FCustomInput& CustomInput = MaterialExpressionCustom->Inputs.Emplace_GetRef();
+			FCustomInput &CustomInput = MaterialExpressionCustom->Inputs.Emplace_GetRef();
 			CustomInput.InputName = "DUMMY_COORDINATE_INPUT";
 			CustomInput.Input.Connect(0, TextureCoordinate);
 		}
@@ -663,14 +655,14 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		{
 			// Create a dummy vertex color parameter to ensure INTERPOLATE_VERTEX_COLOR is correct
 
-			UMaterialExpressionVertexColor* Color = NewObject<UMaterialExpressionVertexColor>(MaterialFunction);
+			UMaterialExpressionVertexColor *Color = NewObject<UMaterialExpressionVertexColor>(MaterialFunction);
 			Color->MaterialExpressionGuid = FGuid::NewGuid();
 			Color->bCollapsed = true;
 			Color->MaterialExpressionEditorX = MaterialExpressionCustom->MaterialExpressionEditorX - 200;
 			Color->MaterialExpressionEditorY = MaterialExpressionCustom->MaterialExpressionEditorY;
 			MaterialFunction->FunctionExpressions.Add(Color);
 
-			FCustomInput& CustomInput = MaterialExpressionCustom->Inputs.Emplace_GetRef();
+			FCustomInput &CustomInput = MaterialExpressionCustom->Inputs.Emplace_GetRef();
 			CustomInput.InputName = "DUMMY_COLOR_INPUT";
 			CustomInput.Input.Connect(0, Color);
 		}
@@ -679,55 +671,55 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		{
 			// Create a dummy world position node to ensure NEEDS_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS is correct
 
-			UMaterialExpressionWorldPosition* WorldPosition = NewObject<UMaterialExpressionWorldPosition>(MaterialFunction);
+			UMaterialExpressionWorldPosition *WorldPosition = NewObject<UMaterialExpressionWorldPosition>(MaterialFunction);
 			WorldPosition->MaterialExpressionGuid = FGuid::NewGuid();
 			WorldPosition->bCollapsed = true;
 			WorldPosition->WorldPositionShaderOffset = WPT_ExcludeAllShaderOffsets;
 			WorldPosition->MaterialExpressionEditorX = MaterialExpressionCustom->MaterialExpressionEditorX - 200;
 			WorldPosition->MaterialExpressionEditorY = MaterialExpressionCustom->MaterialExpressionEditorY;
 			MaterialFunction->FunctionExpressions.Add(WorldPosition);
-			
-			FCustomInput& CustomInput = MaterialExpressionCustom->Inputs.Emplace_GetRef();
+
+			FCustomInput &CustomInput = MaterialExpressionCustom->Inputs.Emplace_GetRef();
 			CustomInput.InputName = "DUMMY_WORLD_POSITION_INPUT";
 			CustomInput.Input.Connect(0, WorldPosition);
 		}
 
 		MaterialExpressionCustom->PostEditChange();
 
-		TArray<FOutputPin>& OutputPins = AllOutputPins.Emplace_GetRef();
+		TArray<FOutputPin> &OutputPins = AllOutputPins.Emplace_GetRef();
 		for (int32 Index = 0; Index < Outputs.Num(); Index++)
 		{
 			// + 1 as default output pin is result
-			OutputPins.Add({ MaterialExpressionCustom, Index + 1 });
+			OutputPins.Add({MaterialExpressionCustom, Index + 1});
 		}
 	}
 
 	for (int32 Layer = 0; Layer < StaticBoolParameters.Num(); Layer++)
 	{
 		const int32 InputIndex = StaticBoolParameters[Layer];
-		const FPin& Input = Inputs[InputIndex];
+		const FPin &Input = Inputs[InputIndex];
 
 		const TArray<TArray<FOutputPin>> PreviousAllOutputPins = MoveTemp(AllOutputPins);
-		
+
 		for (int32 Width = 0; Width < 1 << (StaticBoolParameters.Num() - Layer - 1); Width++)
 		{
-			TArray<FOutputPin>& OutputPins = AllOutputPins.Emplace_GetRef();
+			TArray<FOutputPin> &OutputPins = AllOutputPins.Emplace_GetRef();
 			for (int32 Index = 0; Index < Outputs.Num(); Index++)
 			{
-				UClass* Class = UMaterialExpressionStaticSwitch::StaticClass();
+				UClass *Class = UMaterialExpressionStaticSwitch::StaticClass();
 				if (Input.IsCurrentFramePin())
 				{
 					Class = UMaterialExpressionPreviousFrameSwitch::StaticClass();
 				}
 
-				UMaterialExpression* StaticSwitch = NewObject<UMaterialExpression>(MaterialFunction, Class);
+				UMaterialExpression *StaticSwitch = NewObject<UMaterialExpression>(MaterialFunction, Class);
 				StaticSwitch->MaterialExpressionGuid = FGuid::NewGuid();
 				StaticSwitch->MaterialExpressionEditorX = (Layer + 2) * 500;
 				StaticSwitch->MaterialExpressionEditorY = 200 * Width;
 				MaterialFunction->FunctionExpressions.Add(StaticSwitch);
 
-				const FOutputPin& OutputPinA = PreviousAllOutputPins[2 * Width + 0][Index];
-				const FOutputPin& OutputPinB = PreviousAllOutputPins[2 * Width + 1][Index];
+				const FOutputPin &OutputPinA = PreviousAllOutputPins[2 * Width + 0][Index];
+				const FOutputPin &OutputPinB = PreviousAllOutputPins[2 * Width + 1][Index];
 
 				StaticSwitch->GetInput(0)->Connect(OutputPinA.Index, OutputPinA.Expression);
 				StaticSwitch->GetInput(1)->Connect(OutputPinB.Index, OutputPinB.Expression);
@@ -737,7 +729,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 					StaticSwitch->GetInput(2)->Connect(0, FunctionInputs[InputIndex]);
 				}
 
-				OutputPins.Add({ StaticSwitch, 0 });
+				OutputPins.Add({StaticSwitch, 0});
 			}
 		}
 	}
@@ -745,11 +737,11 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 	ensure(AllOutputPins.Num() == 1);
 	for (int32 Index = 0; Index < Outputs.Num(); Index++)
 	{
-		const FOutputPin& Pin = AllOutputPins[0][Index];
-		UMaterialExpressionFunctionOutput* FunctionOutput = FunctionOutputs[Index];
+		const FOutputPin &Pin = AllOutputPins[0][Index];
+		UMaterialExpressionFunctionOutput *FunctionOutput = FunctionOutputs[Index];
 
 		// Add multiply node to mitigate 5.0 bug where custom node output are incorrectly translated if linked directly to a material output
-		UMaterialExpressionMultiply* Multiply = NewObject<UMaterialExpressionMultiply>(MaterialFunction);
+		UMaterialExpressionMultiply *Multiply = NewObject<UMaterialExpressionMultiply>(MaterialFunction);
 		Multiply->MaterialExpressionGuid = FGuid::NewGuid();
 		Multiply->MaterialExpressionEditorX = FunctionOutput->MaterialExpressionEditorX - 50;
 		Multiply->MaterialExpressionEditorY = FunctionOutput->MaterialExpressionEditorY;
@@ -760,7 +752,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 	}
 
 	{
-		UMaterialExpressionComment* Comment = NewObject<UMaterialExpressionComment>(MaterialFunction);
+		UMaterialExpressionComment *Comment = NewObject<UMaterialExpressionComment>(MaterialFunction);
 		Comment->MaterialExpressionGuid = FGuid::NewGuid();
 		Comment->MaterialExpressionEditorX = 0;
 		Comment->MaterialExpressionEditorY = -200;
@@ -773,13 +765,13 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 	// Update open material editors
 	for (TObjectIterator<UMaterial> It; It; ++It)
 	{
-		UMaterial* CurrentMaterial = *It;
+		UMaterial *CurrentMaterial = *It;
 		if (!CurrentMaterial->bIsPreviewMaterial)
 		{
 			continue;
 		}
 
-		IMaterialEditor* MaterialEditor = FindMaterialEditorForAsset(CurrentMaterial);
+		IMaterialEditor *MaterialEditor = FindMaterialEditorForAsset(CurrentMaterial);
 		if (!MaterialEditor)
 		{
 			continue;
@@ -799,20 +791,20 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 
 		MaterialEditor->NotifyExternalMaterialChange();
 
-		UMaterialInterface* MaterialInterface = MaterialEditor->GetMaterialInterface();
+		UMaterialInterface *MaterialInterface = MaterialEditor->GetMaterialInterface();
 		if (MaterialInterface && MaterialInterface->IsA<UMaterial>())
 		{
 			// Enable the Apply button
-			static_cast<FMaterialEditor*>(MaterialEditor)->bMaterialDirty = true;
+			static_cast<FMaterialEditor *>(MaterialEditor)->bMaterialDirty = true;
 
 			if (Library.bAutomaticallyApply)
 			{
-				const FMaterialEditorCommands& Commands = FMaterialEditorCommands::Get();
+				const FMaterialEditorCommands &Commands = FMaterialEditorCommands::Get();
 				MaterialEditor->GetToolkitCommands()->ExecuteAction(Commands.Apply.ToSharedRef());
 			}
 		}
 	}
-	
+
 	FNotificationInfo Info(FText::Format(INVTEXT("{0} updated"), FText::FromString(Function.Name)));
 	Info.ExpireDuration = 5.f;
 	Info.CheckBoxState = ECheckBoxState::Checked;
@@ -872,7 +864,7 @@ FString FHLSLMaterialFunctionGenerator::FPin::ParseTypeAndDefaultValue()
 	{
 		FunctionInputType = FunctionInput_Vector2;
 		CustomOutputType = CMOT_Float2;
-		
+
 		if (!DefaultValue.IsEmpty() && !ParseDefaultValue(DefaultValue, 2, DefaultValueVector))
 		{
 			return DefaultValueError;
@@ -882,7 +874,7 @@ FString FHLSLMaterialFunctionGenerator::FPin::ParseTypeAndDefaultValue()
 	{
 		FunctionInputType = FunctionInput_Vector3;
 		CustomOutputType = CMOT_Float3;
-		
+
 		if (!DefaultValue.IsEmpty() && !ParseDefaultValue(DefaultValue, 3, DefaultValueVector))
 		{
 			return DefaultValueError;
@@ -892,7 +884,7 @@ FString FHLSLMaterialFunctionGenerator::FPin::ParseTypeAndDefaultValue()
 	{
 		FunctionInputType = FunctionInput_Vector4;
 		CustomOutputType = CMOT_Float4;
-		
+
 		if (!DefaultValue.IsEmpty() && !ParseDefaultValue(DefaultValue, 4, DefaultValueVector))
 		{
 			return DefaultValueError;
@@ -901,7 +893,7 @@ FString FHLSLMaterialFunctionGenerator::FPin::ParseTypeAndDefaultValue()
 	else if (Type == "Texture2D")
 	{
 		FunctionInputType = FunctionInput_Texture2D;
-		
+
 		if (!DefaultValue.IsEmpty())
 		{
 			return DefaultValueError;
@@ -910,7 +902,7 @@ FString FHLSLMaterialFunctionGenerator::FPin::ParseTypeAndDefaultValue()
 	else if (Type == "TextureCube")
 	{
 		FunctionInputType = FunctionInput_TextureCube;
-		
+
 		if (!DefaultValue.IsEmpty())
 		{
 			return DefaultValueError;
@@ -919,7 +911,7 @@ FString FHLSLMaterialFunctionGenerator::FPin::ParseTypeAndDefaultValue()
 	else if (Type == "Texture2DArray")
 	{
 		FunctionInputType = FunctionInput_Texture2DArray;
-		
+
 		if (!DefaultValue.IsEmpty())
 		{
 			return DefaultValueError;
@@ -928,7 +920,7 @@ FString FHLSLMaterialFunctionGenerator::FPin::ParseTypeAndDefaultValue()
 	else if (Type == "TextureExternal")
 	{
 		FunctionInputType = FunctionInput_TextureExternal;
-		
+
 		if (!DefaultValue.IsEmpty())
 		{
 			return DefaultValueError;
@@ -937,7 +929,7 @@ FString FHLSLMaterialFunctionGenerator::FPin::ParseTypeAndDefaultValue()
 	else if (Type == "Texture3D")
 	{
 		FunctionInputType = FunctionInput_VolumeTexture;
-		
+
 		if (!DefaultValue.IsEmpty())
 		{
 			return DefaultValueError;
@@ -956,37 +948,37 @@ FString FHLSLMaterialFunctionGenerator::FPin::ParseTypeAndDefaultValue()
 	return {};
 }
 
-FString FHLSLMaterialFunctionGenerator::GenerateFunctionCode(const UHLSLMaterialFunctionLibrary& Library, const FHLSLMaterialFunction& Function, const TArray<FString>& Structs, const FString& Declarations)
+FString FHLSLMaterialFunctionGenerator::GenerateFunctionCode(const UHLSLMaterialFunctionLibrary &Library, const FHLSLMaterialFunction &Function, const TArray<FString> &Structs, const FString &Declarations)
 {
 	FString Code;
-	for (const FString& Struct : Structs)
+	for (const FString &Struct : Structs)
 	{
 		Code += Struct;
 	}
-	
+
 	Code += Function.Body.Replace(TEXT("return"), TEXT("return 0.f"));
 
 	if (Library.bAccurateErrors)
 	{
 		Code = FString::Printf(TEXT(
-			"#line %d \"%s%s%s\"\n%s\n#line 10000 \"Error occured outside of Custom HLSL node, line number will be inaccurate. "
-			"Untick bAccurateErrors on your HLSL library to fix this (%s)\""),
-			Function.StartLine + 1,
-			FHLSLMaterialErrorHook::PathPrefix,
-			*Library.File.FilePath,
-			FHLSLMaterialErrorHook::PathSuffix,
-			*Code,
-			*Library.GetPathName());
+								   "#line %d \"%s%s%s\"\n%s\n#line 10000 \"Error occured outside of Custom HLSL node, line number will be inaccurate. "
+								   "Untick bAccurateErrors on your HLSL library to fix this (%s)\""),
+							   Function.StartLine + 1,
+							   FHLSLMaterialErrorHook::PathPrefix,
+							   *Library.File.FilePath,
+							   FHLSLMaterialErrorHook::PathSuffix,
+							   *Code,
+							   *Library.GetPathName());
 	}
 
 	return FString::Printf(TEXT("// START %s\n\n%s\n%s\n\n// END %s\n\nreturn 0.f;\n//%s\n"), *Function.Name, *Declarations, *Code, *Function.Name, *Function.HashedString);
 }
 
-bool FHLSLMaterialFunctionGenerator::ParseDefaultValue(const FString& DefaultValue, int32 Dimension, FVector4& OutValue)
+bool FHLSLMaterialFunctionGenerator::ParseDefaultValue(const FString &DefaultValue, int32 Dimension, FVector4 &OutValue)
 {
 	const FString FloatPattern = R"_(\s*(-?\s*\+?\s*(?:[0-9]*[.])?[0-9]*)f?\s*)_";
 
-	const auto TryParseFloat = [&](const FString& String, auto& OutFloatValue)
+	const auto TryParseFloat = [&](const FString &String, auto &OutFloatValue)
 	{
 		FRegexPattern RegexPattern("^" + FloatPattern + "$");
 		FRegexMatcher RegexMatcher(RegexPattern, String);
@@ -1012,7 +1004,7 @@ bool FHLSLMaterialFunctionGenerator::ParseDefaultValue(const FString& DefaultVal
 			return true;
 		}
 
-		FRegexPattern RegexPattern("^float2\\("+ FloatPattern + "," + FloatPattern + "\\)$");
+		FRegexPattern RegexPattern("^float2\\(" + FloatPattern + "," + FloatPattern + "\\)$");
 		FRegexMatcher RegexMatcher(RegexPattern, DefaultValue);
 		if (!RegexMatcher.FindNext())
 		{
@@ -1033,7 +1025,7 @@ bool FHLSLMaterialFunctionGenerator::ParseDefaultValue(const FString& DefaultVal
 			return true;
 		}
 
-		FRegexPattern RegexPattern("^float3\\("+ FloatPattern + "," + FloatPattern + "," + FloatPattern + "\\)$");
+		FRegexPattern RegexPattern("^float3\\(" + FloatPattern + "," + FloatPattern + "," + FloatPattern + "\\)$");
 		FRegexMatcher RegexMatcher(RegexPattern, DefaultValue);
 		if (!RegexMatcher.FindNext())
 		{
@@ -1057,7 +1049,7 @@ bool FHLSLMaterialFunctionGenerator::ParseDefaultValue(const FString& DefaultVal
 			return true;
 		}
 
-		FRegexPattern RegexPattern("^float4\\("+ FloatPattern + "," + FloatPattern + "," + FloatPattern + "," + FloatPattern + "\\)$");
+		FRegexPattern RegexPattern("^float4\\(" + FloatPattern + "," + FloatPattern + "," + FloatPattern + "," + FloatPattern + "\\)$");
 		FRegexMatcher RegexMatcher(RegexPattern, DefaultValue);
 		if (!RegexMatcher.FindNext())
 		{
@@ -1073,7 +1065,7 @@ bool FHLSLMaterialFunctionGenerator::ParseDefaultValue(const FString& DefaultVal
 	}
 }
 
-FString FHLSLMaterialFunctionGenerator::GenerateTooltip(const FString& ParamName, const FString& FunctionComment)
+FString FHLSLMaterialFunctionGenerator::GenerateTooltip(const FString &ParamName, const FString &FunctionComment)
 {
 	FString Tooltip;
 
@@ -1121,7 +1113,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateTooltip(const FString& ParamName
 	return Tooltip;
 }
 
-TMap<FString, FString> FHLSLMaterialFunctionGenerator::GenerateMetadata(const FString& Metadata)
+TMap<FString, FString> FHLSLMaterialFunctionGenerator::GenerateMetadata(const FString &Metadata)
 {
 	TMap<FString, FString> Result;
 
@@ -1139,23 +1131,23 @@ TMap<FString, FString> FHLSLMaterialFunctionGenerator::GenerateMetadata(const FS
 	return Result;
 }
 
-IMaterialEditor* FHLSLMaterialFunctionGenerator::FindMaterialEditorForAsset(UObject* InAsset)
+IMaterialEditor *FHLSLMaterialFunctionGenerator::FindMaterialEditorForAsset(UObject *InAsset)
 {
 	// From MaterialEditor\Private\MaterialEditingLibrary.cpp
 
-	if (IAssetEditorInstance* AssetEditorInstance = (InAsset != nullptr) ? GEditor->GetEditorSubsystem<UAssetEditorSubsystem>()->FindEditorForAsset(InAsset, false) : nullptr)
+	if (IAssetEditorInstance *AssetEditorInstance = (InAsset != nullptr) ? GEditor->GetEditorSubsystem<UAssetEditorSubsystem>()->FindEditorForAsset(InAsset, false) : nullptr)
 	{
 		// Ensure this is not a UMaterialInstanceDynamic, as that doesn't use IMaterialEditor as its editor
 		if (!InAsset->IsA(UMaterialInstanceDynamic::StaticClass()))
 		{
-			return static_cast<IMaterialEditor*>(AssetEditorInstance);
+			return static_cast<IMaterialEditor *>(AssetEditorInstance);
 		}
 	}
 
 	return nullptr;
 }
 
-UObject* FHLSLMaterialFunctionGenerator::CreateAsset(FString AssetName, FString FolderPath, UClass* Class, FString& OutError)
+UObject *FHLSLMaterialFunctionGenerator::CreateAsset(FString AssetName, FString FolderPath, UClass *Class, FString &OutError)
 {
 	const FString PackageName = FolderPath / AssetName;
 
@@ -1163,7 +1155,7 @@ UObject* FHLSLMaterialFunctionGenerator::CreateAsset(FString AssetName, FString 
 		FString NewPackageName;
 		FString NewAssetName;
 
-		const FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
+		const FAssetToolsModule &AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
 		AssetToolsModule.Get().CreateUniqueAssetName(PackageName, {}, NewPackageName, NewAssetName);
 
 		if (NewAssetName != AssetName)
@@ -1175,13 +1167,13 @@ UObject* FHLSLMaterialFunctionGenerator::CreateAsset(FString AssetName, FString 
 		}
 	}
 
-	UPackage* Package = CreatePackage(*PackageName);
+	UPackage *Package = CreatePackage(*PackageName);
 	if (!ensure(Package))
 	{
 		return nullptr;
 	}
 
-	auto* Object = NewObject<UObject>(Package, Class, *AssetName, RF_Public | RF_Standalone);
+	auto *Object = NewObject<UObject>(Package, Class, *AssetName, RF_Public | RF_Standalone);
 	if (!ensure(Object))
 	{
 		return nullptr;

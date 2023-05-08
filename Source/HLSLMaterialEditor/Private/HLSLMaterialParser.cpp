@@ -8,10 +8,10 @@
 #include "ShaderCompilerCore.h"
 
 FString FHLSLMaterialParser::Parse(
-	const UHLSLMaterialFunctionLibrary& Library, 
-	FString Text, 
-	TArray<FHLSLMaterialFunction>& OutFunctions,
-	TArray<FString>& OutStructs)
+	const UHLSLMaterialFunctionLibrary &Library,
+	FString Text,
+	TArray<FHLSLMaterialFunction> &OutFunctions,
+	TArray<FString> &OutStructs)
 {
 	enum class EScope
 	{
@@ -44,9 +44,9 @@ FString FHLSLMaterialParser::Parse(
 		{
 			Token += Text[TokenIndex];
 		}
-		
+
 		const TCHAR Char = Text[Index++];
-		
+
 		if (FChar::IsLinebreak(Char))
 		{
 			LineNumber++;
@@ -62,7 +62,7 @@ FString FHLSLMaterialParser::Parse(
 			if (FChar::IsLinebreak(Char))
 			{
 				// Clear any pending comment when there's an empty line with no //
-				if (OutFunctions.Num() > 0 && 
+				if (OutFunctions.Num() > 0 &&
 					OutFunctions.Last().ReturnType.IsEmpty())
 				{
 					OutFunctions.Pop();
@@ -281,7 +281,8 @@ FString FHLSLMaterialParser::Parse(
 			}
 		}
 		break;
-		default: ensure(false);
+		default:
+			ensure(false);
 		}
 	}
 
@@ -306,7 +307,7 @@ FString FHLSLMaterialParser::Parse(
 	return {};
 }
 
-TArray<FHLSLMaterialParser::FInclude> FHLSLMaterialParser::GetIncludes(const FString& FilePath, const FString& Text)
+TArray<FHLSLMaterialParser::FInclude> FHLSLMaterialParser::GetIncludes(const FString &FilePath, const FString &Text)
 {
 	FString VirtualFolder;
 	if (UHLSLMaterialFunctionLibrary::TryConvertFilenameToShaderPath(FilePath, VirtualFolder))
@@ -337,13 +338,13 @@ TArray<FHLSLMaterialParser::FInclude> FHLSLMaterialParser::GetIncludes(const FSt
 			DiskPath = FPaths::ConvertRelativePathToFull(DiskPath);
 		}
 
-		OutIncludes.Add({ VirtualPath, DiskPath });
+		OutIncludes.Add({VirtualPath, DiskPath});
 	}
 
 	return OutIncludes;
 }
 
-TArray<FCustomDefine> FHLSLMaterialParser::GetDefines(const FString& Text)
+TArray<FCustomDefine> FHLSLMaterialParser::GetDefines(const FString &Text)
 {
 	TArray<FCustomDefine> OutDefines;
 
@@ -351,7 +352,7 @@ TArray<FCustomDefine> FHLSLMaterialParser::GetDefines(const FString& Text)
 	FRegexMatcher RegexMatcher(RegexPattern, Text);
 	while (RegexMatcher.FindNext())
 	{
-		OutDefines.Add({ RegexMatcher.GetCaptureGroup(2), RegexMatcher.GetCaptureGroup(3) });
+		OutDefines.Add({RegexMatcher.GetCaptureGroup(2), RegexMatcher.GetCaptureGroup(3)});
 	}
 
 	return OutDefines;

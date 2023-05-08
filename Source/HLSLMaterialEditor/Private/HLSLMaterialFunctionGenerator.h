@@ -15,12 +15,12 @@ class FHLSLMaterialFunctionGenerator
 {
 public:
 	static FString GenerateFunction(
-		UHLSLMaterialFunctionLibrary& Library,
-		const TArray<FString>& IncludeFilePaths,
-		const TArray<FCustomDefine>& AdditionalDefines,
-		const TArray<FString>& Structs,
+		UHLSLMaterialFunctionLibrary &Library,
+		const TArray<FString> &IncludeFilePaths,
+		const TArray<FCustomDefine> &AdditionalDefines,
+		const TArray<FString> &Structs,
 		FHLSLMaterialFunction Function,
-		FMaterialUpdateContext& UpdateContext);
+		FMaterialUpdateContext &UpdateContext);
 
 private:
 	struct FPin
@@ -35,22 +35,15 @@ private:
 		const TMap<FString, FString> Metadata;
 
 		FPin(
-			const FString& Name,
-			const FString& Type,
+			const FString &Name,
+			const FString &Type,
 			bool bIsConst,
 			bool bIsOutput,
 			bool bIsInternal,
-			const FString& DefaultValue,
-			const FString& ToolTip,
-			const TMap<FString, FString>& Metadata)
-			: Name(Name)
-			, Type(Type)
-			, bIsConst(bIsConst)
-			, bIsOutput(bIsOutput)
-			, bIsInternal(bIsInternal)
-			, DefaultValue(DefaultValue)
-			, ToolTip(ToolTip)
-			, Metadata(Metadata)
+			const FString &DefaultValue,
+			const FString &ToolTip,
+			const TMap<FString, FString> &Metadata)
+			: Name(Name), Type(Type), bIsConst(bIsConst), bIsOutput(bIsOutput), bIsInternal(bIsInternal), DefaultValue(DefaultValue), ToolTip(ToolTip), Metadata(Metadata)
 		{
 		}
 
@@ -58,7 +51,7 @@ private:
 		TOptional<ECustomMaterialOutputType> CustomOutputType;
 
 		bool bDefaultValueBool = false;
-		FVector4 DefaultValueVector{ ForceInit };
+		FVector4 DefaultValueVector{ForceInit};
 
 		FString ParseTypeAndDefaultValue();
 
@@ -68,20 +61,20 @@ private:
 		}
 	};
 
-	static constexpr const TCHAR* META_Expose = TEXT("Expose");
-	static constexpr const TCHAR* META_Category = TEXT("Category");
-	static constexpr const TCHAR* FUNC_META_Prefix = TEXT("Prefix");
+	static constexpr const TCHAR *META_Expose = TEXT("Expose");
+	static constexpr const TCHAR *META_Category = TEXT("Category");
+	static constexpr const TCHAR *FUNC_META_Prefix = TEXT("Prefix");
 
-	static FString GenerateFunctionCode(const UHLSLMaterialFunctionLibrary& Library, const FHLSLMaterialFunction& Function, const TArray<FString>& Structs, const FString& Declarations);
-	static bool ParseDefaultValue(const FString& DefaultValue, int32 Dimension, FVector4& OutValue);
-	static FString GenerateTooltip(const FString& ParamName, const FString& FunctionComment);
-	static TMap<FString, FString> GenerateMetadata(const FString& Metadata);
-		
-	static IMaterialEditor* FindMaterialEditorForAsset(UObject* InAsset);
-	static UObject* CreateAsset(FString AssetName, FString FolderPath, UClass* Class, FString& OutError);
+	static FString GenerateFunctionCode(const UHLSLMaterialFunctionLibrary &Library, const FHLSLMaterialFunction &Function, const TArray<FString> &Structs, const FString &Declarations);
+	static bool ParseDefaultValue(const FString &DefaultValue, int32 Dimension, FVector4 &OutValue);
+	static FString GenerateTooltip(const FString &ParamName, const FString &FunctionComment);
+	static TMap<FString, FString> GenerateMetadata(const FString &Metadata);
 
-	template<typename T>
-	static T* CreateAsset(FString AssetName, FString FolderPath, FString& OutError)
+	static IMaterialEditor *FindMaterialEditorForAsset(UObject *InAsset);
+	static UObject *CreateAsset(FString AssetName, FString FolderPath, UClass *Class, FString &OutError);
+
+	template <typename T>
+	static T *CreateAsset(FString AssetName, FString FolderPath, FString &OutError)
 	{
 		return CastChecked<T>(CreateAsset(AssetName, FolderPath, T::StaticClass(), OutError), ECastCheckedType::NullAllowed);
 	}

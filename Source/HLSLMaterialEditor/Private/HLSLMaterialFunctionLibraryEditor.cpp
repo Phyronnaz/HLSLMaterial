@@ -17,11 +17,11 @@
 class FHLSLMaterialEditorInterfaceImpl : public IHLSLMaterialEditorInterface
 {
 public:
-	virtual TSharedRef<FVirtualDestructor> CreateWatcher(UHLSLMaterialFunctionLibrary& Library) override
+	virtual TSharedRef<FVirtualDestructor> CreateWatcher(UHLSLMaterialFunctionLibrary &Library) override
 	{
 		return FHLSLMaterialFunctionLibraryEditor::CreateWatcher(Library);
 	}
-	virtual void Update(UHLSLMaterialFunctionLibrary& Library) override
+	virtual void Update(UHLSLMaterialFunctionLibrary &Library) override
 	{
 		FHLSLMaterialFunctionLibraryEditor::Generate(Library);
 	}
@@ -35,9 +35,9 @@ void FHLSLMaterialFunctionLibraryEditor::Register()
 {
 	IHLSLMaterialEditorInterface::StaticInterface = new FHLSLMaterialEditorInterfaceImpl();
 
-	IAssetRegistry& AssetRegistry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get();
+	IAssetRegistry &AssetRegistry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get();
 	AssetRegistry.OnFilesLoaded().AddLambda([&AssetRegistry]
-	{
+											{
 		// Force load all libraries that have bGenerateOnFileChange, to start their watchers
 		TArray<FAssetData> AssetDatas;
 		FARFilter Filer;
@@ -52,12 +52,11 @@ void FHLSLMaterialFunctionLibraryEditor::Register()
 		for (const FAssetData& AssetData : AssetDatas)
 		{
 			ensure(AssetData.GetAsset());
-		}
-	});
+		} });
 }
 HLSL_STARTUP_FUNCTION(EDelayedRegisterRunPhase::EndOfEngineInit, FHLSLMaterialFunctionLibraryEditor::Register);
 
-TSharedRef<FVirtualDestructor> FHLSLMaterialFunctionLibraryEditor::CreateWatcher(UHLSLMaterialFunctionLibrary& Library)
+TSharedRef<FVirtualDestructor> FHLSLMaterialFunctionLibraryEditor::CreateWatcher(UHLSLMaterialFunctionLibrary &Library)
 {
 	FHLSLMaterialMessages::FLibraryScope Scope(Library);
 
@@ -71,7 +70,7 @@ TSharedRef<FVirtualDestructor> FHLSLMaterialFunctionLibraryEditor::CreateWatcher
 		FString Text;
 		if (TryLoadFileToString(Text, Library.GetFilePath()))
 		{
-			for (const FHLSLMaterialParser::FInclude& Include : FHLSLMaterialParser::GetIncludes(FullPath, Text))
+			for (const FHLSLMaterialParser::FInclude &Include : FHLSLMaterialParser::GetIncludes(FullPath, Text))
 			{
 				if (!Include.DiskPath.IsEmpty())
 				{
@@ -83,14 +82,12 @@ TSharedRef<FVirtualDestructor> FHLSLMaterialFunctionLibraryEditor::CreateWatcher
 
 	const TSharedRef<FHLSLMaterialFileWatcher> Watcher = FHLSLMaterialFileWatcher::Create(Files);
 	Watcher->OnFileChanged.AddWeakLambda(&Library, [&Library]
-	{
-		Generate(Library);
-	});
+										 { Generate(Library); });
 
 	return Watcher;
 }
 
-void FHLSLMaterialFunctionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary& Library)
+void FHLSLMaterialFunctionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary &Library)
 {
 	FHLSLMaterialMessages::FLibraryScope Scope(Library);
 
@@ -98,17 +95,17 @@ void FHLSLMaterialFunctionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary& 
 	Library.CreateWatcherIfNeeded();
 
 	const FString FullPath = Library.GetFilePath();
-	
+
 	FString Text;
 	if (!TryLoadFileToString(Text, FullPath))
 	{
 		FHLSLMaterialMessages::ShowError(TEXT("Failed to read %s"), *FullPath);
 		return;
 	}
-	
+
 	FString BaseHash;
 	TArray<FString> IncludeFilePaths;
-	for (const FHLSLMaterialParser::FInclude& Include : FHLSLMaterialParser::GetIncludes(FullPath, Text))
+	for (const FHLSLMaterialParser::FInclude &Include : FHLSLMaterialParser::GetIncludes(FullPath, Text))
 	{
 		IncludeFilePaths.Add(Include.VirtualPath);
 
@@ -124,9 +121,9 @@ void FHLSLMaterialFunctionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary& 
 	}
 
 	TArray<FCustomDefine> AdditionalDefines = FHLSLMaterialParser::GetDefines(Text);
-	AdditionalDefines.Add({ "ENGINE_VERSION", FString::FromInt(ENGINE_VERSION) });
+	AdditionalDefines.Add({"ENGINE_VERSION", FString::FromInt(ENGINE_VERSION)});
 
-	for (const FCustomDefine& Define : AdditionalDefines)
+	for (const FCustomDefine &Define : AdditionalDefines)
 	{
 		BaseHash += FHLSLMaterialUtilities::HashString(Define.DefineName);
 		BaseHash += FHLSLMaterialUtilities::HashString(Define.DefineValue);
@@ -143,24 +140,22 @@ void FHLSLMaterialFunctionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary& 
 		}
 	}
 
-	for (const FString& Struct : Structs)
+	for (const FString &Struct : Structs)
 	{
 		BaseHash += Struct;
 	}
 
 	Library.MaterialFunctions.RemoveAll([&](TSoftObjectPtr<UMaterialFunction> InFunction)
-	{
-		return !InFunction.LoadSynchronous();
-	});
-	
+										{ return !InFunction.LoadSynchronous(); });
+
 	FMaterialUpdateContext UpdateContext;
 	for (FHLSLMaterialFunction Function : Functions)
 	{
 		Function.HashedString = Function.GenerateHashedString(BaseHash);
-		
+
 		const FString Error = FHLSLMaterialFunctionGenerator::GenerateFunction(
-			Library, 
-			IncludeFilePaths, 
+			Library,
+			IncludeFilePaths,
 			AdditionalDefines,
 			Structs,
 			Function,
@@ -177,7 +172,7 @@ void FHLSLMaterialFunctionLibraryEditor::Generate(UHLSLMaterialFunctionLibrary& 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FHLSLMaterialFunctionLibraryEditor::TryLoadFileToString(FString& Text, const FString& FullPath)
+bool FHLSLMaterialFunctionLibraryEditor::TryLoadFileToString(FString &Text, const FString &FullPath)
 {
 	if (!FPaths::FileExists(FullPath))
 	{

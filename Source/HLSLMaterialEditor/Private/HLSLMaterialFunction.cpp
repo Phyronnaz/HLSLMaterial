@@ -3,12 +3,12 @@
 #include "HLSLMaterialFunction.h"
 #include "HLSLMaterialUtilities.h"
 
-FString FHLSLMaterialFunction::GenerateHashedString(const FString& BaseHash) const
+FString FHLSLMaterialFunction::GenerateHashedString(const FString &BaseHash) const
 {
 	FString StringToHash =
 		BaseHash +
 		// Changes too often
-		//FString::FromInt(StartLine) + " " +
+		// FString::FromInt(StartLine) + " " +
 		Comment + " " +
 		Metadata + " " +
 		ReturnType + " " +
@@ -19,7 +19,9 @@ FString FHLSLMaterialFunction::GenerateHashedString(const FString& BaseHash) con
 	StringToHash.ReplaceInline(TEXT("\t"), TEXT(" "));
 	StringToHash.ReplaceInline(TEXT("\n"), TEXT(" "));
 
-	while (StringToHash.ReplaceInline(TEXT("  "), TEXT(" "))) {}
+	while (StringToHash.ReplaceInline(TEXT("  "), TEXT(" ")))
+	{
+	}
 
 	return "HLSL Hash: " + FHLSLMaterialUtilities::HashString(StringToHash);
 }

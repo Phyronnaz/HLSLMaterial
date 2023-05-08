@@ -21,4 +21,4 @@ void FHLSLMaterialMessages::ShowErrorImpl(FString Message)
 	UE_LOG(LogHLSLMaterial, Error, TEXT("%s"), *Message);
 }
 
-UHLSLMaterialFunctionLibrary* FHLSLMaterialMessages::FLibraryScope::Library;
+UHLSLMaterialFunctionLibrary *FHLSLMaterialMessages::FLibraryScope::Library;

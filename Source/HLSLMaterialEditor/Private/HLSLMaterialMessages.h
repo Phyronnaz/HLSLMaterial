@@ -10,7 +10,7 @@ class FHLSLMaterialMessages
 {
 public:
 	template <typename FmtType, typename... Types>
-	static void ShowError(const FmtType& Fmt, Types... Args)
+	static void ShowError(const FmtType &Fmt, Types... Args)
 	{
 		ShowErrorImpl(FString::Printf(Fmt, Args...));
 	}
@@ -18,14 +18,14 @@ public:
 	class FLibraryScope
 	{
 	public:
-		explicit FLibraryScope(UHLSLMaterialFunctionLibrary& InLibrary)
+		explicit FLibraryScope(UHLSLMaterialFunctionLibrary &InLibrary)
 			: Guard(Library, &InLibrary)
 		{
 		}
 
 	private:
-		static UHLSLMaterialFunctionLibrary* Library;
-		TGuardValue<UHLSLMaterialFunctionLibrary*> Guard;
+		static UHLSLMaterialFunctionLibrary *Library;
+		TGuardValue<UHLSLMaterialFunctionLibrary *> Guard;
 
 		friend class FHLSLMaterialMessages;
 	};

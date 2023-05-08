@@ -16,9 +16,9 @@
 
 void FHLSLMaterialErrorHook::Register()
 {
-	IMaterialEditorModule& MaterialEditorModule = FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
+	IMaterialEditorModule &MaterialEditorModule = FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
 	MaterialEditorModule.OnMaterialEditorOpened().AddLambda([](TWeakPtr<IMaterialEditor> WeakMaterialEditor)
-	{
+															{
 		// The material editor is not yet initialized - can't hook into it just yet
 		FHLSLMaterialUtilities::DelayedCall([=]
 		{
@@ -27,14 +27,13 @@ void FHLSLMaterialErrorHook::Register()
 			{
 				HookMessageLogHack(*PinnedMaterialEditor);
 			}
-		});
-	});
+		}); });
 }
 HLSL_STARTUP_FUNCTION(EDelayedRegisterRunPhase::EndOfEngineInit, FHLSLMaterialErrorHook::Register);
 
-void FHLSLMaterialErrorHook::HookMessageLogHack(IMaterialEditor& MaterialEditor)
+void FHLSLMaterialErrorHook::HookMessageLogHack(IMaterialEditor &MaterialEditor)
 {
-	const TSharedPtr<FMaterialStats> StatsManager = static_cast<FMaterialEditor&>(MaterialEditor).MaterialStatsManager;
+	const TSharedPtr<FMaterialStats> StatsManager = static_cast<FMaterialEditor &>(MaterialEditor).MaterialStatsManager;
 	if (!ensure(StatsManager))
 	{
 		return;
@@ -46,14 +45,12 @@ void FHLSLMaterialErrorHook::HookMessageLogHack(IMaterialEditor& MaterialEditor)
 		return;
 	}
 
-	FMessageLogListingViewModel& ViewModel = static_cast<FMessageLogListingViewModel&>(*Listing);
+	FMessageLogListingViewModel &ViewModel = static_cast<FMessageLogListingViewModel &>(*Listing);
 	ViewModel.OnDataChanged().AddLambda([&ViewModel]
-	{
-		ReplaceMessages(ViewModel);
-	});
+										{ ReplaceMessages(ViewModel); });
 }
 
-void FHLSLMaterialErrorHook::ReplaceMessages(FMessageLogListingViewModel& ViewModel)
+void FHLSLMaterialErrorHook::ReplaceMessages(FMessageLogListingViewModel &ViewModel)
 {
 	ensure(ViewModel.GetCurrentPageIndex() == 0);
 
@@ -67,14 +64,14 @@ void FHLSLMaterialErrorHook::ReplaceMessages(FMessageLogListingViewModel& ViewMo
 		}
 
 		TArray<TSharedRef<IMessageToken>> NewTokens;
-		for (const TSharedRef<IMessageToken>& Token : Message->GetMessageTokens())
+		for (const TSharedRef<IMessageToken> &Token : Message->GetMessageTokens())
 		{
 			if (Token->GetType() != EMessageToken::Text)
 			{
 				NewTokens.Add(Token);
 				continue;
 			}
-			
+
 			FString Path;
 			FString FullPath;
 			FString ErrorPrefix;
@@ -121,7 +118,7 @@ void FHLSLMaterialErrorHook::ReplaceMessages(FMessageLogListingViewModel& ViewMo
 				NewTokens.Add(Token);
 				continue;
 			}
-			
+
 			FString LineNumber;
 			FString CharStart;
 			FString CharEnd;
@@ -159,7 +156,7 @@ void FHLSLMaterialErrorHook::ReplaceMessages(FMessageLogListingViewModel& ViewMo
 				NewTokens.Add(Token);
 				continue;
 			}
-			
+
 			FString DisplayText = FString::Printf(TEXT("%s:%s:%s"), *Path, *LineNumber, *CharStart);
 			if (!CharEnd.IsEmpty())
 			{
@@ -171,7 +168,7 @@ void FHLSLMaterialErrorHook::ReplaceMessages(FMessageLogListingViewModel& ViewMo
 				FText::FromString(DisplayText),
 				FText::Format(INVTEXT("Open {0}"), FText::FromString(FullPath)),
 				FOnActionTokenExecuted::CreateLambda([=]
-				{
+													 {
 					FString ExePath = GetDefault<UHLSLMaterialSettings>()->HLSLEditor.FilePath;
 
 					{
@@ -229,8 +226,7 @@ void FHLSLMaterialErrorHook::ReplaceMessages(FMessageLogListingViewModel& ViewMo
 						FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 							INVTEXT("Failed to open {0}\n\nYou can update the application used to open HLSL files in your editor settings, under Plugins -> HLSL Material"), 
 							FText::FromString(ExePath + Args)));
-					}
-				})));
+					} })));
 			NewTokens.Add(FTextToken::Create(FText::FromString(ErrorSuffix)));
 		}
 		HLSL_CONST_CAST(Message->GetMessageTokens()) = NewTokens;
