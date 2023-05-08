@@ -11,6 +11,7 @@ Discord: https://discord.gg/UjtexdkWxC
 Marketplace: https://www.unrealengine.com/marketplace/en-US/product/hlsl-material
 
 ## Features
+
 * HLSL support: write all your functions in a single hlsl file and use any of them in regular materials
 * Team-friendly: regular material functions are generated, so your team members don't need the plugin to use them!
 * Live updates: material functions & opened material editors are refreshed when saving the hlsl file (Windows only)
@@ -24,11 +25,13 @@ Marketplace: https://www.unrealengine.com/marketplace/en-US/product/hlsl-materia
 * Clickable errors: errors are properly displayed relative to your file(s), and clicking them will open your IDE
 
 ## Installing from source
+
 Download the repo as a zip and extract it under your project Plugins folder so you have `YourProject/Plugins/HLSLMaterial/HLSLMaterial.uplugin`
 
 Visual Studio will be required.
 
 ## How to
+
 * Create a new `HLSL Material Function Library` (right click Content Browser -> Material & Textures). This asset will be the link between your hlsl file and all the generated material functions.
 * Set the `File` on it to point to your HLSL file
 * Add functions to the file
@@ -36,6 +39,7 @@ Visual Studio will be required.
 * You can also disable the automatic updates and manually right click the asset -> `Update from HLSL`
 
 ## Syntax
+
 * All return types must be `void` to ensure the pins are all properly named
 * To mark a parameter as an output, use `out`: eg, `out float3 MyOutput`
 * Comments must use the `//` syntax, `/*` is not supported
@@ -86,12 +90,13 @@ void Test(
 ```
 
 ### Texture
+
 For textures, an additional parameter named `YourTextureParameterSampler` of type `SamplerState` will automatically be added by Unreal:
 
 ```hlsl
 void Test(Texture2D MyTexture, float2 UVs, out float3 Color)
 {
-	Color = Texture2DSample(MyTexture, MyTextureSampler, UVs).rgb;
+    Color = Texture2DSample(MyTexture, MyTextureSampler, UVs).rgb;
 }
 ```
 
@@ -102,15 +107,20 @@ The plugin manually parses the functions in the HLSL file. From there, it create
 The logic is pretty simple & straightforward, so it should be relatively robust.
 
 ## Project management
+
 ### Moving functions
+
 Material functions are generated next to your library asset, under `YourFunctionLibraryAsset_Generated/`.
 Once they are generated, you should be able to move them anywhere - the library keeps a ref to them.
 
 ### Renaming functions
+
 If you rename a function in your HLSL file, you need to manually rename the corresponding material function in Unreal, ideally before saving the HLSL. Otherwise, a new one will be created with the new name.
 
 ### Deleting functions
+
 The plugin will never delete any asset. If you remove a function from the HLSL, it is up to you to remove it from Unreal.
 
 ### Source Control
+
 You don't need to check in the HLSL file or the library - simply checking in the generated functions should be enough. However, if your teammates are also using the plugin it might be best to check in everything.
