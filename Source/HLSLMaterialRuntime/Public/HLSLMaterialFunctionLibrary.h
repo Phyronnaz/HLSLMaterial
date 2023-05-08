@@ -14,17 +14,17 @@ class HLSLMATERIALRUNTIME_API IHLSLMaterialEditorInterface
 public:
 	virtual ~IHLSLMaterialEditorInterface() = default;
 
-	virtual TSharedRef<FVirtualDestructor> CreateWatcher(UHLSLMaterialFunctionLibrary& Library) = 0;
-	virtual void Update(UHLSLMaterialFunctionLibrary& Library) = 0;
+	virtual TSharedRef<FVirtualDestructor> CreateWatcher(UHLSLMaterialFunctionLibrary &Library) = 0;
+	virtual void Update(UHLSLMaterialFunctionLibrary &Library) = 0;
 
 public:
-	static IHLSLMaterialEditorInterface* Get()
+	static IHLSLMaterialEditorInterface *Get()
 	{
 		return StaticInterface;
 	}
 
 private:
-	static IHLSLMaterialEditorInterface* StaticInterface;
+	static IHLSLMaterialEditorInterface *StaticInterface;
 
 	friend class FHLSLMaterialFunctionLibraryEditor;
 };
@@ -34,7 +34,7 @@ UCLASS()
 class HLSLMATERIALRUNTIME_API UHLSLMaterialFunctionLibrary : public UObject
 {
 	GENERATED_BODY()
-		
+
 public:
 #if WITH_EDITORONLY_DATA
 	// HLSL file containing functions
@@ -58,7 +58,7 @@ public:
 	// instead of the huge generated material file
 	//
 	// ie, errors will look like MyFile.hlsl:9 instead of /Generated/Material.usf:2330
-	// 
+	//
 	// The downside is that whenever you add or remove a line to your file, all the functions below it will have to be recompiled
 	// If compilation is taking forever for you, consider turning this off
 	UPROPERTY(EditAnywhere, Category = "Config")
@@ -68,7 +68,7 @@ public:
 	bool bAutomaticallyApply = true;
 
 	UPROPERTY(EditAnywhere, Category = "Config")
-	TArray<FText> Categories = { NSLOCTEXT("MaterialExpression", "Misc", "Misc") };
+	TArray<FText> Categories = {NSLOCTEXT("MaterialExpression", "Misc", "Misc")};
 
 	UPROPERTY(EditAnywhere, Category = "Generated")
 	TArray<TSoftObjectPtr<UMaterialFunction>> MaterialFunctions;
@@ -77,12 +77,12 @@ public:
 #if WITH_EDITOR
 public:
 	FString GetFilePath() const;
-	static FString GetFilePath(const FString& InFilePath);
+	static FString GetFilePath(const FString &InFilePath);
 
 	void CreateWatcherIfNeeded();
 
 	//~ Begin UObject Interface
-	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void PostEditChangeProperty(FPropertyChangedEvent &PropertyChangedEvent) override;
 	virtual void BeginDestroy() override;
 	virtual void PostLoad() override;
 	//~ End UObject Interface
@@ -90,13 +90,13 @@ public:
 private:
 	TSharedPtr<FVirtualDestructor> Watcher;
 
-	static void MakeRelativePath(FString& Path);
+	static void MakeRelativePath(FString &Path);
 
 public:
-	static bool TryConvertShaderPathToFilename(const FString& ShaderPath, FString& OutFilename);
-	static bool TryConvertFilenameToShaderPath(const FString& Filename, FString& OutShaderPath);
+	static bool TryConvertShaderPathToFilename(const FString &ShaderPath, FString &OutFilename);
+	static bool TryConvertFilenameToShaderPath(const FString &Filename, FString &OutShaderPath);
 
 private:
-	static bool TryConvertPathImpl(const TMap<FString, FString>& DirectoryMappings, const FString& InPath, FString& OutPath);
+	static bool TryConvertPathImpl(const TMap<FString, FString> &DirectoryMappings, const FString &InPath, FString &OutPath);
 #endif
 };

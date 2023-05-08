@@ -5,14 +5,14 @@
 #include "Misc/PackageName.h"
 
 #if WITH_EDITOR
-IHLSLMaterialEditorInterface* IHLSLMaterialEditorInterface::StaticInterface = nullptr;
+IHLSLMaterialEditorInterface *IHLSLMaterialEditorInterface::StaticInterface = nullptr;
 
 FString UHLSLMaterialFunctionLibrary::GetFilePath() const
 {
 	return GetFilePath(File.FilePath);
 }
 
-FString UHLSLMaterialFunctionLibrary::GetFilePath(const FString& InFilePath)
+FString UHLSLMaterialFunctionLibrary::GetFilePath(const FString &InFilePath)
 {
 	FString FullPath;
 
@@ -38,7 +38,7 @@ void UHLSLMaterialFunctionLibrary::CreateWatcherIfNeeded()
 	}
 }
 
-void UHLSLMaterialFunctionLibrary::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+void UHLSLMaterialFunctionLibrary::PostEditChangeProperty(FPropertyChangedEvent &PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
@@ -67,11 +67,11 @@ void UHLSLMaterialFunctionLibrary::BeginDestroy()
 void UHLSLMaterialFunctionLibrary::PostLoad()
 {
 	Super::PostLoad();
-	
+
 	CreateWatcherIfNeeded();
 }
 
-void UHLSLMaterialFunctionLibrary::MakeRelativePath(FString& Path)
+void UHLSLMaterialFunctionLibrary::MakeRelativePath(FString &Path)
 {
 	const FString AbsolutePickedPath = FPaths::ConvertRelativePathToFull(Path);
 
@@ -100,15 +100,15 @@ void UHLSLMaterialFunctionLibrary::MakeRelativePath(FString& Path)
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-bool UHLSLMaterialFunctionLibrary::TryConvertShaderPathToFilename(const FString& ShaderPath, FString& OutFilename)
+bool UHLSLMaterialFunctionLibrary::TryConvertShaderPathToFilename(const FString &ShaderPath, FString &OutFilename)
 {
 	return TryConvertPathImpl(AllShaderSourceDirectoryMappings(), ShaderPath, OutFilename);
 }
 
-bool UHLSLMaterialFunctionLibrary::TryConvertFilenameToShaderPath(const FString& Filename, FString& OutShaderPath)
+bool UHLSLMaterialFunctionLibrary::TryConvertFilenameToShaderPath(const FString &Filename, FString &OutShaderPath)
 {
 	TMap<FString, FString> ShaderInverseDirectoryMappings;
-	for (auto& It : AllShaderSourceDirectoryMappings())
+	for (auto &It : AllShaderSourceDirectoryMappings())
 	{
 		ShaderInverseDirectoryMappings.Add(It.Value, It.Key);
 	}
@@ -116,13 +116,13 @@ bool UHLSLMaterialFunctionLibrary::TryConvertFilenameToShaderPath(const FString&
 	return TryConvertPathImpl(ShaderInverseDirectoryMappings, Filename, OutShaderPath);
 }
 
-bool UHLSLMaterialFunctionLibrary::TryConvertPathImpl(const TMap<FString, FString>& DirectoryMappings, const FString& InPath, FString& OutPath)
+bool UHLSLMaterialFunctionLibrary::TryConvertPathImpl(const TMap<FString, FString> &DirectoryMappings, const FString &InPath, FString &OutPath)
 {
 	FString ParentDirectoryPath = FPaths::GetPath(InPath);
 	FString RelativeDirectoryPath = FPaths::GetCleanFilename(InPath);
 	while (!ParentDirectoryPath.IsEmpty())
 	{
-		if (const FString* Mapping = DirectoryMappings.Find(ParentDirectoryPath))
+		if (const FString *Mapping = DirectoryMappings.Find(ParentDirectoryPath))
 		{
 			OutPath = FPaths::Combine(*Mapping, RelativeDirectoryPath);
 			return true;
