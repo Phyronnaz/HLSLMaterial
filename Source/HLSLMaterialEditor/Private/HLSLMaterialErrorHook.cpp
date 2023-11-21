@@ -1,4 +1,4 @@
-﻿// Copyright Phyronnaz
+// Copyright Phyronnaz
 
 #include "HLSLMaterialErrorHook.h"
 #include "HLSLMaterialSettings.h"
@@ -9,8 +9,8 @@
 #include "Internationalization/Regex.h"
 
 #define private public
-#include "MaterialEditor/Private/MaterialEditor.h"
-#include "MaterialEditor/Private/MaterialStats.h"
+#include "Editor/MaterialEditor/Private/MaterialEditor.h"
+#include "Editor/MaterialEditor/Private/MaterialStats.h"
 #include "Presentation/MessageLogListingViewModel.h"
 #undef private
 
@@ -74,7 +74,7 @@ void FHLSLMaterialErrorHook::ReplaceMessages(FMessageLogListingViewModel& ViewMo
 				NewTokens.Add(Token);
 				continue;
 			}
-			
+
 			FString Path;
 			FString FullPath;
 			FString ErrorPrefix;
@@ -121,7 +121,7 @@ void FHLSLMaterialErrorHook::ReplaceMessages(FMessageLogListingViewModel& ViewMo
 				NewTokens.Add(Token);
 				continue;
 			}
-			
+
 			FString LineNumber;
 			FString CharStart;
 			FString CharEnd;
@@ -159,7 +159,7 @@ void FHLSLMaterialErrorHook::ReplaceMessages(FMessageLogListingViewModel& ViewMo
 				NewTokens.Add(Token);
 				continue;
 			}
-			
+
 			FString DisplayText = FString::Printf(TEXT("%s:%s:%s"), *Path, *LineNumber, *CharStart);
 			if (!CharEnd.IsEmpty())
 			{
@@ -227,7 +227,7 @@ void FHLSLMaterialErrorHook::ReplaceMessages(FMessageLogListingViewModel& ViewMo
 					else
 					{
 						FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-							INVTEXT("Failed to open {0}\n\nYou can update the application used to open HLSL files in your editor settings, under Plugins -> HLSL Material"), 
+							INVTEXT("Failed to open {0}\n\nYou can update the application used to open HLSL files in your editor settings, under Plugins -> HLSL Material"),
 							FText::FromString(ExePath + Args)));
 					}
 				})));

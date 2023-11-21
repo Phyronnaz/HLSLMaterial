@@ -9,7 +9,6 @@ public class HLSLMaterialRuntime : ModuleRules
     {
         PCHUsage = PCHUsageMode.NoPCHs;
 
-        bEnforceIWYU = true;
         bLegacyPublicIncludePaths = false;
         bUseUnity = false;
 

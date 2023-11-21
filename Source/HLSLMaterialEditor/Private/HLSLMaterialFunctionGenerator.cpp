@@ -1,4 +1,4 @@
-﻿// Copyright Phyronnaz
+// Copyright Phyronnaz
 
 #include "HLSLMaterialFunctionGenerator.h"
 #include "HLSLMaterialFunction.h"
@@ -37,7 +37,7 @@
 #include "Materials/MaterialExpressionPreviousFrameSwitch.h"
 #include "Materials/MaterialExpressionTextureObjectParameter.h"
 
-#include "MaterialEditor/Private/MaterialEditor.h"
+#include "Editor/MaterialEditor/Private/MaterialEditor.h"
 
 FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 	UHLSLMaterialFunctionLibrary& Library,
@@ -228,7 +228,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		{
 			return Error;
 		}
-		
+
 		if (Pin.Metadata.Contains(META_Expose))
 		{
 			switch (Pin.FunctionInputType)
@@ -261,7 +261,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			MaxTexCoordinateUsed = FMath::Max(MaxTexCoordinateUsed, FCString::Atoi(*RegexMatcher.GetCaptureGroup(1)));
 		}
 	}
-	
+
 	// Detect used vertex colors
 	const bool bVertexColorUsed = Function.Body.Contains("Parameters.VertexColor", ESearchCase::CaseSensitive);
 	// Detect whether NEEDS_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS is required
@@ -389,9 +389,9 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			{
 				UMaterialExpressionScalarParameter* Expression = NewObject<UMaterialExpressionScalarParameter>(MaterialFunction);
 				SetupExpression(Expression);
-				
+
 				FunctionInputs.Add(Expression);
-				
+
 				if (!Input.DefaultValue.IsEmpty())
 				{
 					Expression->DefaultValue = Input.DefaultValueVector.X;
@@ -402,7 +402,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			{
 				UMaterialExpressionVectorParameter* Expression = NewObject<UMaterialExpressionVectorParameter>(MaterialFunction);
 				SetupExpression(Expression);
-				
+
 				UMaterialExpressionAppendVector* AppendVector = NewObject<UMaterialExpressionAppendVector>(MaterialFunction);
 				MaterialFunction->FunctionExpressions.Add(AppendVector);
 				AppendVector->MaterialExpressionEditorX = 150;
@@ -412,7 +412,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 				AppendVector->B.Connect(4, Expression);
 
 				FunctionInputs.Add(AppendVector);
-				
+
 				if (!Input.DefaultValue.IsEmpty())
 				{
 					Expression->DefaultValue = FLinearColor(Input.DefaultValueVector);
@@ -686,7 +686,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			WorldPosition->MaterialExpressionEditorX = MaterialExpressionCustom->MaterialExpressionEditorX - 200;
 			WorldPosition->MaterialExpressionEditorY = MaterialExpressionCustom->MaterialExpressionEditorY;
 			MaterialFunction->FunctionExpressions.Add(WorldPosition);
-			
+
 			FCustomInput& CustomInput = MaterialExpressionCustom->Inputs.Emplace_GetRef();
 			CustomInput.InputName = "DUMMY_WORLD_POSITION_INPUT";
 			CustomInput.Input.Connect(0, WorldPosition);
@@ -708,7 +708,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 		const FPin& Input = Inputs[InputIndex];
 
 		const TArray<TArray<FOutputPin>> PreviousAllOutputPins = MoveTemp(AllOutputPins);
-		
+
 		for (int32 Width = 0; Width < 1 << (StaticBoolParameters.Num() - Layer - 1); Width++)
 		{
 			TArray<FOutputPin>& OutputPins = AllOutputPins.Emplace_GetRef();
@@ -812,7 +812,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunction(
 			}
 		}
 	}
-	
+
 	FNotificationInfo Info(FText::Format(INVTEXT("{0} updated"), FText::FromString(Function.Name)));
 	Info.ExpireDuration = 5.f;
 	Info.CheckBoxState = ECheckBoxState::Checked;
@@ -872,7 +872,7 @@ FString FHLSLMaterialFunctionGenerator::FPin::ParseTypeAndDefaultValue()
 	{
 		FunctionInputType = FunctionInput_Vector2;
 		CustomOutputType = CMOT_Float2;
-		
+
 		if (!DefaultValue.IsEmpty() && !ParseDefaultValue(DefaultValue, 2, DefaultValueVector))
 		{
 			return DefaultValueError;
@@ -882,7 +882,7 @@ FString FHLSLMaterialFunctionGenerator::FPin::ParseTypeAndDefaultValue()
 	{
 		FunctionInputType = FunctionInput_Vector3;
 		CustomOutputType = CMOT_Float3;
-		
+
 		if (!DefaultValue.IsEmpty() && !ParseDefaultValue(DefaultValue, 3, DefaultValueVector))
 		{
 			return DefaultValueError;
@@ -892,7 +892,7 @@ FString FHLSLMaterialFunctionGenerator::FPin::ParseTypeAndDefaultValue()
 	{
 		FunctionInputType = FunctionInput_Vector4;
 		CustomOutputType = CMOT_Float4;
-		
+
 		if (!DefaultValue.IsEmpty() && !ParseDefaultValue(DefaultValue, 4, DefaultValueVector))
 		{
 			return DefaultValueError;
@@ -901,7 +901,7 @@ FString FHLSLMaterialFunctionGenerator::FPin::ParseTypeAndDefaultValue()
 	else if (Type == "Texture2D")
 	{
 		FunctionInputType = FunctionInput_Texture2D;
-		
+
 		if (!DefaultValue.IsEmpty())
 		{
 			return DefaultValueError;
@@ -910,7 +910,7 @@ FString FHLSLMaterialFunctionGenerator::FPin::ParseTypeAndDefaultValue()
 	else if (Type == "TextureCube")
 	{
 		FunctionInputType = FunctionInput_TextureCube;
-		
+
 		if (!DefaultValue.IsEmpty())
 		{
 			return DefaultValueError;
@@ -919,7 +919,7 @@ FString FHLSLMaterialFunctionGenerator::FPin::ParseTypeAndDefaultValue()
 	else if (Type == "Texture2DArray")
 	{
 		FunctionInputType = FunctionInput_Texture2DArray;
-		
+
 		if (!DefaultValue.IsEmpty())
 		{
 			return DefaultValueError;
@@ -928,7 +928,7 @@ FString FHLSLMaterialFunctionGenerator::FPin::ParseTypeAndDefaultValue()
 	else if (Type == "TextureExternal")
 	{
 		FunctionInputType = FunctionInput_TextureExternal;
-		
+
 		if (!DefaultValue.IsEmpty())
 		{
 			return DefaultValueError;
@@ -937,7 +937,7 @@ FString FHLSLMaterialFunctionGenerator::FPin::ParseTypeAndDefaultValue()
 	else if (Type == "Texture3D")
 	{
 		FunctionInputType = FunctionInput_VolumeTexture;
-		
+
 		if (!DefaultValue.IsEmpty())
 		{
 			return DefaultValueError;
@@ -963,7 +963,7 @@ FString FHLSLMaterialFunctionGenerator::GenerateFunctionCode(const UHLSLMaterial
 	{
 		Code += Struct;
 	}
-	
+
 	Code += Function.Body.Replace(TEXT("return"), TEXT("return 0.f"));
 
 	if (Library.bAccurateErrors)

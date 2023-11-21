@@ -10,7 +10,6 @@ public class HLSLMaterialEditor : ModuleRules
     {
         PCHUsage = PCHUsageMode.NoPCHs;
 
-        bEnforceIWYU = true;
         bLegacyPublicIncludePaths = false;
         bUseUnity = false;
 
